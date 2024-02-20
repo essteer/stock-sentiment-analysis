@@ -2,6 +2,7 @@
 import random
 import requests_cache
 import yfinance as yf
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
@@ -67,6 +68,7 @@ def weighted_random_selection(sample_space: list[str], probs: list[float]) -> st
     
     Returns
     -------
+    weighted_random_selection : str
         weighted random selection from sample_space
     """
     # k=1 to choose just one sample
@@ -116,13 +118,193 @@ def format_plot(fig) -> None:
         title_standoff = 5
     )
 
+
 # ===============================================================
-# Function to create candlestick plot for selected ticker, period and interval
+# Functions to validate input prior to API calls
 # ===============================================================
+
+def validate_period(period: str) -> bool:
+    """
+    Checks for valid period value prior to API calls
+    called by run_once()
     
-def get_price_history_graph(ticker: str, period: str, interval: str):
+    Parameters
+    ----------
+    period : str
+        The time period length, ending on current date minus 2 or 3 days
+        Valid values : "3mo", "6mo", "1y"
+             
+    Returns
+    -------
+    bool : True if period valid, else False
+    """
+    # Selected valid arguments as per yfinance documentation
+    valid_period_values = ["3mo", "6mo", "1y"]
+    try:
+        period = str.lower(period)
+        if period not in valid_period_values:
+            raise ValueError
+    except ValueError:
+        return False
+    
+    return True
+
+
+def validate_interval(interval: str) -> bool:
+    """
+    Checks for valid interval value prior to API calls
+    called by run_once()
+    
+    Parameters
+    ----------
+    interval : str
+        The interval frequency
+        Valid values : "1d", "1wk", "1mo"
+        
+    Returns
+    -------
+    bool : True if interval valid, else False
+    """
+    # Selected valid arguments as per yfinance documentation
+    valid_interval_values = ["1d", "1wk", "1mo"]
+    try:
+        interval = str.lower(interval)
+        if interval not in valid_interval_values:
+            raise ValueError
+    except ValueError:
+        return False
+    
+    return True
+
+
+# ===============================================================
+# Functions to call and process yfinance API data
+# ===============================================================
+
+def get_ticker(ticker: str) -> yf.Ticker:
+    """
+    Gets ticker data via call to yfinance API
+    called by run_once()
+    
+    Parameters
+    ----------
+    ticker : str
+        The official abbreviation of the stock
+        Valid values : Any official stock ticker symbol that exists on Yahoo! Finance
+        eg. "msft"
+    
+    Returns
+    -------
+    yf_ticker : yfinance Ticker object
+    """
+    # Get the ticker data
+    try:
+        yf_ticker = yf.Ticker(str.upper(ticker))
+    # TODO: test what type of exception is thrown for an invalid ticker value
+    except Exception as e:
+        print(e)
+        return "Invalid ticker value!"
+    
+    return yf_ticker
+
+
+def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.DataFrame | str:
+    """
+    Retrieves price history data from yfinance Ticker object
+    called by run_once()
+    
+    Parameters
+    ----------
+    ticker : yfinance Ticker object
+        NOTE: originally returned by get_ticker()
+        
+    period : str
+        The time period length, ending on current date minus 2 or 3 days
+        Valid values : "3mo", "6mo", "1y"
+        NOTE: pre-validated by validate_time_ranges()
+        
+    interval : str
+        The interval frequency
+        Valid values : "1d", "1wk", "1mo"
+        NOTE: pre-validated by validate_time_ranges()
+        
+    Complete example : get_history(<yf.Ticker>, "6mo", "1d")
+    
+    Returns
+    -------
+    history : pd.DataFrame
+    """
+    valid_period = str.lower(period)
+    valid_interval = str.lower(interval)
+    # Pull stock price dataframe, adjusted for corporate actions (stock splits, dividends)
+    try:
+        history = ticker.history(period = valid_period, interval = valid_interval, auto_adjust = True)
+    except Exception as e:
+        return f"Error retrieving price history: {e}" 
+    
+    return history
+
+
+# ===============================================================
+# to create candlestick plot for selected ticker, period and interval
+# ===============================================================
+
+def plot_candlestick(history: pd.DataFrame, label: str) -> None:
     """
     Creates a candlestick graph for a specified stock, time period and interval.
+    called by run_once()
+    
+    Parameters
+    ----------
+    history : pd.DataFrame
+        price history for chosen ticker
+        NOTE: originally returned by get_history()
+    
+    label : str
+        original ticker input validated via API call in get_ticker()
+        
+    Complete example : get_history(<pd.DataFrame>, "MSFT")
+    """
+    # Make ticker uppercase for plot
+    label = label.upper()
+    
+    fig = go.Figure(
+        data=[go.Candlestick(x = history.index, 
+                             open = history["Open"], 
+                             high = history["High"], 
+                             low = history["Low"], 
+                             close = history["Close"]
+    )])
+    # Calculate total mean
+    mean_value = history["Close"].mean()
+    # Add horizontal dashed line for mean
+    fig.add_shape(
+        type = "line", 
+        x0 = history.index.min(), x1 = history.index.max(), 
+        y0 = mean_value, y1 = mean_value, 
+        line = dict(color = palette["stone"], width = 2, dash = "dash"), name = "Mean"
+    )
+    # Update layout
+    fig.update_layout(
+        title = f"{label} Daily Close Price",
+        xaxis_title = "Date",
+        xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
+        xaxis_rangeslider_visible = False,
+        yaxis_title = f"Close Price {label}"
+    )
+    # Show plot
+    format_plot(fig)
+    fig.show()
+
+
+# ===============================================================
+# Handler function
+# ===============================================================
+
+def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d"):
+    """
+    Handles function calls for one API call
+    and resulting plots
     
     Parameters
     ----------
@@ -132,87 +314,39 @@ def get_price_history_graph(ticker: str, period: str, interval: str):
         eg. "msft"
         
     period : str
-        The time period length, ending on current date minus 2 or 3 days ===NEED REVIEW===
-        Valid values : "1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"
-        eg. "6mo"
+        The time period length, ending on current date minus 2 or 3 days
+        Valid values : "3mo", "6mo", "1y"
         
     interval : str
         The interval frequency
-        Valid values : "1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"
-        eg. "1d"
-        
-    Complete example : get_price_history_graph("nvda", "6mo", "1d")
-    
+        Valid values : "1d", "1wk", "1mo"
     """
+    # NOTE: validate period and interval before API call, for faster error catching
+    if not validate_period(raw_period):
+        return 'Invalid period value! Try "3mo", "6mo", or "1y"'
+    if not validate_interval(raw_interval):
+        return 'Invalid interval value! Try "1d", "1wk", or "1mo"'
     
-    # Valid arguments as per yfinance documentation
-    valid_period_values = ["1d", "5d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"]
-    valid_interval_values = ["1m", "2m", "5m", "15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"]
+    # TODO: test what type of exception is thrown for an invalid ticker value
+    ticker = get_ticker(raw_ticker)
+    if type(ticker) != yf.Ticker:
+        # NOTE: exception already printed by get_ticker()
+        return None
     
-    label = str.upper(ticker) # only for plot purposes
+    ticker_history = get_history(ticker, raw_period, raw_interval)
+    if type(ticker_history) != pd.DataFrame:
+        # NOTE: exception already printed by get_history()
+        return None
+        
+    plot_candlestick(ticker_history, raw_ticker)
     
-    # Set the ticker
-    ticker = yf.Ticker(str.upper(ticker))
-    
-    # Set the period, with validation
-    try:
-        period = str.lower(period)
-        if period not in valid_period_values:
-            raise ValueError(
-                'Invalid period value! Try "1d", "5d", "1mo", "3mo", '
-                '"6mo", "1y", "2y", "5y", "10y", "ytd", "max"'
-            )       
-    except ValueError as e:
-        print(str(e))
-        return  # Exit the function when an invalid period value is encountered
-    
-    # Set the interval, with validation
-    try:
-        interval = str.lower(interval)
-        if interval not in valid_interval_values:
-            raise ValueError(
-                'Invalid interval value! Try "1m", "2m", "5m", '
-                '"15m", "30m", "60m", "90m", "1h", "1d", "5d", "1wk", "1mo", "3mo"'
-            )     
-    except ValueError as e:
-        print(str(e))
-        return  # Exit the function when an invalid interval value is encountered
-
-    
-    # Pull stock dataframe, adjust for corporate actions (stock splits, dividends)
-    full_history = ticker.history(period = period, interval = interval, auto_adjust = True)
-
-    
-    fig = go.Figure(data=[go.Candlestick(x = full_history.index,
-                open = full_history["Open"],
-                high = full_history["High"],
-                low = full_history["Low"],
-                close = full_history["Close"]
-    )])
-    
-    # Calculate total mean
-    mean_value = full_history["Close"].mean()
-    
-    # Add horizontal dashed line for mean
-    fig.add_shape(
-    type = "line", x0 = full_history.index.min(), x1 = full_history.index.max(), y0 = mean_value, y1 = mean_value,
-    line = dict(color = palette["stone"], width = 2, dash = "dash"), name = "Mean"
-    )
-    
-    # Update layout
-    fig.update_layout(title = f"{label} Daily Close Price",
-                  xaxis_title = "Date",
-                  xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
-                  xaxis_rangeslider_visible = False,
-                  yaxis_title = f"Close Price {label}"
-    )
-    
-    # Show plot
-    format_plot(fig)
-    fig.show()
 
 # ===============================================================
 # Test
 # ===============================================================
-    
-get_price_history_graph("aapl", "6mo", "1d")
+
+# Valid ticker, period, and interval
+run_once("aapl", "6mo", "1d")
+
+# TODO: test what type of exception is thrown for an invalid ticker value
+# run_once("XXXXXXX", "6mo", "1d")

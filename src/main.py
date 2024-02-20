@@ -301,7 +301,7 @@ def plot_candlestick(history: pd.DataFrame, label: str) -> None:
 # Handler function
 # ===============================================================
 
-def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d"):
+def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", testing=False):
     """
     Handles function calls for one API call
     and resulting plots
@@ -320,6 +320,10 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d"):
     interval : str
         The interval frequency
         Valid values : "1d", "1wk", "1mo"
+    
+    testing : bool
+        Flag to test API calls without plotting results
+    
     """
     # NOTE: validate period and interval before API call, for faster error catching
     if not validate_period(raw_period):
@@ -337,16 +341,25 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d"):
     if type(ticker_history) != pd.DataFrame:
         # NOTE: exception already printed by get_history()
         return None
-        
-    plot_candlestick(ticker_history, raw_ticker)
+    
+    if not testing:
+        plot_candlestick(ticker_history, raw_ticker)
     
 
 # ===============================================================
-# Test
+# Unit tests
 # ===============================================================
 
 # Valid ticker, period, and interval
 run_once("aapl", "6mo", "1d")
 
-# TODO: test what type of exception is thrown for an invalid ticker value
-# run_once("XXXXXXX", "6mo", "1d")
+# NOTE: below group of tests test API calls only
+# Valid ticker, period, and interval
+# run_once("aapl", "6mo", "1d", testing=True)
+# Valid ticker and interval, invalid period
+# run_once("aapl", "999", "1d", testing=True)
+# Valid ticker and period, invalid interval
+# run_once("aapl", "6mo", "999", testing=True)
+# Valid period and interval, invalid ticker
+# NOTE: invalid ticker "inval" returns "inval: No data found, symbol may be delisted"
+# run_once("XXXXXXXXX", "6mo", "1d", testing=True)

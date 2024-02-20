@@ -6,6 +6,14 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import warnings
+"""
+Suppress Pandas future warning: 
+FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
+and will be removed in a future version. Use pd.to_timedelta instead.
+df.index += _pd.TimedeltaIndex(dst_error_hours, 'h')
+"""
+warnings.filterwarnings("ignore", category=FutureWarning, module="yfinance")
 
 # ===============================================================
 # Header data for randomised referer and user-agent values
@@ -181,7 +189,7 @@ def validate_interval(interval: str) -> bool:
 # Functions to call and process yfinance API data
 # ===============================================================
 
-def get_ticker(ticker: str) -> yf.Ticker:
+def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf.Ticker:
     """
     Gets ticker data via call to yfinance API
     called by run_once()
@@ -193,13 +201,17 @@ def get_ticker(ticker: str) -> yf.Ticker:
         Valid values : Any official stock ticker symbol that exists on Yahoo! Finance
         eg. "msft"
     
+    current_session : requests_cache.CachedSession
+        session data for API call to yfinance
+        NOTE: originally set by weighted_random_selection() and run_once()
+    
     Returns
     -------
     yf_ticker : yfinance Ticker object
     """
     # Get the ticker data
     try:
-        yf_ticker = yf.Ticker(str.upper(ticker))
+        yf_ticker = yf.Ticker(str.upper(ticker), session=current_session)
     # TODO: test what type of exception is thrown for an invalid ticker value
     except Exception as e:
         print(e)
@@ -301,7 +313,7 @@ def plot_candlestick(history: pd.DataFrame, label: str) -> None:
 # Handler function
 # ===============================================================
 
-def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", testing=False):
+def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", testing=False) -> None:
     """
     Handles function calls for one API call
     and resulting plots
@@ -327,12 +339,28 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
     """
     # NOTE: validate period and interval before API call, for faster error catching
     if not validate_period(raw_period):
-        return 'Invalid period value! Try "3mo", "6mo", or "1y"'
+        print('Invalid period value! Try "3mo", "6mo", or "1y"')
+        return None
     if not validate_interval(raw_interval):
-        return 'Invalid interval value! Try "1d", "1wk", or "1mo"'
+        print('Invalid interval value! Try "1d", "1wk", or "1mo"')
+        return None
+    
+    # Set session data
+    try:
+        new_session = requests_cache.CachedSession("yfinance.cache")
+        # Get weighted random referer and user-agent values
+        referer = weighted_random_selection(REFERERS, REFERER_PROBS)
+        user_agent = weighted_random_selection(USER_AGENTS, USER_AGENT_PROBS)
+        # Assign values to new_session header
+        new_session.headers["User-Agent"] = user_agent
+        new_session.headers["Referer"] = referer
+        new_session.headers["Upgrade-Insecure-Requests"] = "1"
+    except Exception as e:
+        print(f"Error setting session data: {e}")
+        return None
     
     # TODO: test what type of exception is thrown for an invalid ticker value
-    ticker = get_ticker(raw_ticker)
+    ticker = get_ticker(raw_ticker, current_session=new_session)
     if type(ticker) != yf.Ticker:
         # NOTE: exception already printed by get_ticker()
         return None
@@ -347,15 +375,18 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
     
 
 # ===============================================================
-# Unit tests
+# Unit tests - with plots
 # ===============================================================
 
 # Valid ticker, period, and interval
-run_once("aapl", "6mo", "1d")
+# run_once("aapl", "6mo", "1d")
 
-# NOTE: below group of tests test API calls only
+# ===============================================================
+# Unit tests - without plots - test API calls only
+# ===============================================================
+
 # Valid ticker, period, and interval
-# run_once("aapl", "6mo", "1d", testing=True)
+run_once("aapl", "6mo", "1d", testing=True)
 # Valid ticker and interval, invalid period
 # run_once("aapl", "999", "1d", testing=True)
 # Valid ticker and period, invalid interval

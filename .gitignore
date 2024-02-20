@@ -5,6 +5,8 @@ git_commands.ipynb
 __pycache__/
 *.py[cod]
 *$py.class
+# yfinance
+yfinance.cache
 
 # C extensions
 *.so

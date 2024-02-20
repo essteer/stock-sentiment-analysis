@@ -57,10 +57,16 @@ def weighted_random_selection(sample_space: list[str], probs: list[float]) -> st
     Assigns a weighted-random selection of header data
     for API requests
 
-    Args:
-        sample_space: list of options to randomly select from
-        probs: list of probabilites per sample in sample_space (sum == 1)
-    Returns:
+    Parameters
+    ----------
+    sample_space : list 
+        list of options to randomly select from
+    
+    probs : list 
+        list of probabilites per sample in sample_space (sum == 1)
+    
+    Returns
+    -------
         weighted random selection from sample_space
     """
     # k=1 to choose just one sample
@@ -73,13 +79,21 @@ def weighted_random_selection(sample_space: list[str], probs: list[float]) -> st
 # Plot palette and template
 # ===============================================================
 
-palette = {"dark": "#252b33", "grey": "#45464d", "light": "#fefeff", "stone": "#8f8f94",
-           "blue": "#336681", "green": "#089389", "red": "#d34748", "pink": "#cf82d3", "yellow": "#e6daaa", "sky": "#8ebdff"
+palette = {"dark": "#252b33", "grey": "#45464d", "light": "#fefeff", "stone": "#8f8f94", "blue": "#336681", 
+           "green": "#089389", "red": "#d34748", "pink": "#cf82d3", "yellow": "#e6daaa", "sky": "#8ebdff"
 }
 
-def format_plot(fig):
+def format_plot(fig) -> None:
     """
-    Applies custom theme to Plotly figure.
+    Applies custom theme to Plotly figure in-place.
+    
+    Parameters
+    ----------
+    fig : Plotly figure
+    
+    Returns
+    -------
+    None : formats fig in-place
     """
     fig.update_layout(
         plot_bgcolor=palette["dark"], paper_bgcolor=palette["dark"],
@@ -106,9 +120,9 @@ def format_plot(fig):
 # Function to create candlestick plot for selected ticker, period and interval
 # ===============================================================
     
-def get_price_history_graph(ticker, period, interval):
+def get_price_history_graph(ticker: str, period: str, interval: str):
     """
-    This function creates a candlestick graph for a specified stock for a specified time period and iterval.
+    Creates a candlestick graph for a specified stock, time period and interval.
     
     Parameters
     ----------

@@ -257,8 +257,49 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
     return history
 
 
+def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon_months: int=3) -> list[str]:
+    """
+    Identifies earnings dates within period range + 3 months (default)
+
+    Parameters
+    ----------
+    ticker : yfinance Ticker object
+        NOTE: originally returned by get_ticker()
+
+    history : pd.DataFrame
+        price history for chosen ticker
+        NOTE: originally returned by get_history()
+
+    horizon_months : int
+        no. months ahead to project earnings dates (default = 3)
+        must be 0 <= horizon_months <= 12
+
+    Returns
+    -------
+    valid_earnings : list[str]
+        list of earnings dates within range
+    """
+    # Failsafes to prevent negative and extreme horizons
+    horizon = max(0, horizon_months)
+    horizon = min(horizon, 12)
+    # Extract earnings dates from Ticker object
+    earnings_dates = ticker.earnings_dates.index
+    # Extract YYYY-MM-DD from earnings dates as strings
+    earnings_dates = [date.strftime("%Y-%m-%d") for date in earnings_dates]
+    # Get date range from ticker_history
+    history_dates = history.index
+    # Get start date
+    history_min = list(history_dates)[0].strftime("%Y-%m-%d")
+    # Calculate history end date + 3 months
+    max_horizon = (list(history_dates)[-1] + pd.DateOffset(months=horizon)).strftime("%Y-%m-%d")
+    # Get list of earnings dates within history_min_max range + 3 months
+    valid_earnings = [x for x in earnings_dates if x >= history_min and x <= max_horizon]
+    
+    return valid_earnings
+
+
 # ===============================================================
-# to create candlestick plot for selected ticker, period and interval
+# Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
 def plot_candlestick(history: pd.DataFrame, label: str) -> None:
@@ -369,6 +410,13 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
     if type(ticker_history) != pd.DataFrame:
         # NOTE: exception already printed by get_history()
         return None
+    
+    # TODO: seek ticker w/o earnings dates to test error condition?
+    try:
+        ticker_earnings_dates = get_earnings_dates(ticker, ticker_history)
+    except Exception as e:
+        print(f"Error retrieving earnings dates: {e}")
+        ticker_earnings_dates = []
     
     if not testing:
         plot_candlestick(ticker_history, raw_ticker)

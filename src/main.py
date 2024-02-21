@@ -95,7 +95,8 @@ palette = {"dark": "#252b33", "grey": "#45464d", "light": "#fefeff", "stone": "#
 
 def format_plot(fig) -> None:
     """
-    Applies custom theme to Plotly figure in-place.
+    Applies custom theme to Plotly figure in-place
+    Called by plot_candlestick()
     
     Parameters
     ----------
@@ -134,7 +135,7 @@ def format_plot(fig) -> None:
 def validate_period(period: str) -> bool:
     """
     Checks for valid period value prior to API calls
-    called by run_once()
+    Called by run_once()
     
     Parameters
     ----------
@@ -161,7 +162,7 @@ def validate_period(period: str) -> bool:
 def validate_interval(interval: str) -> bool:
     """
     Checks for valid interval value prior to API calls
-    called by run_once()
+    Called by run_once()
     
     Parameters
     ----------
@@ -192,7 +193,7 @@ def validate_interval(interval: str) -> bool:
 def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf.Ticker:
     """
     Gets ticker data via call to yfinance API
-    called by run_once()
+    Called by run_once()
     
     Parameters
     ----------
@@ -202,7 +203,7 @@ def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf
         eg. "msft"
     
     current_session : requests_cache.CachedSession
-        session data for API call to yfinance
+        Session data for API call to yfinance
         NOTE: originally set by weighted_random_selection() and run_once()
     
     Returns
@@ -223,7 +224,7 @@ def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf
 def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.DataFrame | str:
     """
     Retrieves price history data from yfinance Ticker object
-    called by run_once()
+    Called by run_once()
     
     Parameters
     ----------
@@ -260,21 +261,22 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
 def get_horizon(history: pd.DataFrame, horizon_months: int=3) -> str:
     """
     Calculates horizon beyond latest price date (defaults to 3 months ahead)
+    Called by run_once()
     
     Parameters
     ----------
     history : pd.DataFrame
-        price history for chosen ticker
+        Price history for chosen ticker
         NOTE: originally returned by get_history()
 
     horizon_months : int
-        no. months ahead to project earnings dates (default = 3)
-        must be 0 <= horizon_months <= 12
+        No. months ahead to project earnings dates (default = 3)
+        Must be 0 <= horizon_months <= 12
     
     Returns
     -------
     new_horizon : str
-        today's date + horizon_months as "YYYY-MM-DD"
+        Today's date + horizon_months as "YYYY-MM-DD"
     """
     # Failsafes to prevent negative and extreme horizons
     horizon = max(0, horizon_months)
@@ -290,6 +292,7 @@ def get_horizon(history: pd.DataFrame, horizon_months: int=3) -> str:
 def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -> list[str]:
     """
     Identifies earnings dates from start of period range to horizon
+    Called by run_once()
 
     Parameters
     ----------
@@ -297,17 +300,17 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
         NOTE: originally returned by get_ticker()
 
     history : pd.DataFrame
-        price history for chosen ticker
+        Price history for chosen ticker
         NOTE: originally returned by get_history()
 
     new_horizon : str
-        today's date + horizon_months as "YYYY-MM-DD"
+        Today's date + horizon_months as "YYYY-MM-DD"
         NOTE: originally returned by get_horizon()
 
     Returns
     -------
     valid_earnings : list[str]
-        list of earnings dates within range
+        List of earnings dates within range
     """
     # Extract earnings dates from Ticker object
     earnings_dates = ticker.earnings_dates.index
@@ -330,26 +333,26 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
 def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[]) -> None:
     """
     Creates a candlestick graph for a specified stock, time period and interval.
-    called by run_once()
+    Called by run_once()
     
     Parameters
     ----------
+    label : str
+        Original ticker input validated via API call in get_ticker()
+
     history : pd.DataFrame
-        price history for chosen ticker
+        Price history for chosen ticker
         NOTE: originally returned by get_history()
     
-    label : str
-        original ticker input validated via API call in get_ticker()
-    
-    earnings_dates : list[str]
-        list of earnings dates within range
-        NOTE: originally returned by get_earnings_dates()
-    
     horizon : str
-        today's date + 3 months (default) as "YYYY-MM-DD"
-        NOTE: originally returned by get_earnings_dates()
+        Today's date + 3 months (default) as "YYYY-MM-DD"
+        NOTE: originally returned by get_earnings_dates()    
 
-    Complete example : get_history(<pd.DataFrame>, "MSFT", ["YYYY-DD-MM", "YYYY-DD-MM"], "YYYY-MM-DD")
+    earnings_dates : list[str]
+        List of earnings dates within range
+        NOTE: originally returned by get_earnings_dates()
+    
+    Complete example : plot_candlestick("MSFT", <pd.DataFrame>, ["YYYY-DD-MM", "YYYY-DD-MM"], "YYYY-MM-DD")
     """
     # Make ticker uppercase for plot
     label = label.upper()
@@ -410,8 +413,7 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
 
 def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", testing=False) -> None:
     """
-    Handles function calls for one API call
-    and resulting plots
+    Handles function calls for one API call and resulting plots
     
     Parameters
     ----------

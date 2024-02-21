@@ -257,11 +257,77 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
     return history
 
 
+def get_horizon(history: pd.DataFrame, horizon_months: int=3) -> str:
+    """
+    Calculates horizon beyond latest price date (defaults to 3 months ahead)
+    
+    Parameters
+    ----------
+    history : pd.DataFrame
+        price history for chosen ticker
+        NOTE: originally returned by get_history()
+
+    horizon_months : int
+        no. months ahead to project earnings dates (default = 3)
+        must be 0 <= horizon_months <= 12
+    
+    Returns
+    -------
+    new_horizon : str
+        today's date + horizon_months as "YYYY-MM-DD"
+    """
+    # Failsafes to prevent negative and extreme horizons
+    horizon = max(0, horizon_months)
+    horizon = min(horizon, 12)
+    # Get date range from ticker_history
+    history_dates = history.index
+    # Calculate history end date + horizon_months
+    new_horizon = (list(history_dates)[-1] + pd.DateOffset(months=horizon)).strftime("%Y-%m-%d")
+
+    return new_horizon
+
+
+def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -> list[str]:
+    """
+    Identifies earnings dates from start of period range to horizon
+
+    Parameters
+    ----------
+    ticker : yfinance Ticker object
+        NOTE: originally returned by get_ticker()
+
+    history : pd.DataFrame
+        price history for chosen ticker
+        NOTE: originally returned by get_history()
+
+    new_horizon : str
+        today's date + horizon_months as "YYYY-MM-DD"
+        NOTE: originally returned by get_horizon()
+
+    Returns
+    -------
+    valid_earnings : list[str]
+        list of earnings dates within range
+    """
+    # Extract earnings dates from Ticker object
+    earnings_dates = ticker.earnings_dates.index
+    # Extract YYYY-MM-DD from earnings dates as strings
+    earnings_dates = [date.strftime("%Y-%m-%d") for date in earnings_dates]
+    # Get date range from ticker_history
+    history_dates = history.index
+    # Get start date
+    history_min = list(history_dates)[0].strftime("%Y-%m-%d")
+    # Get list of earnings dates within history_min_max range + 3 months
+    valid_earnings = [x for x in earnings_dates if x >= history_min and x <= horizon]
+    
+    return valid_earnings
+
+
 # ===============================================================
-# to create candlestick plot for selected ticker, period and interval
+# Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
-def plot_candlestick(history: pd.DataFrame, label: str) -> None:
+def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[]) -> None:
     """
     Creates a candlestick graph for a specified stock, time period and interval.
     called by run_once()
@@ -274,12 +340,20 @@ def plot_candlestick(history: pd.DataFrame, label: str) -> None:
     
     label : str
         original ticker input validated via API call in get_ticker()
-        
-    Complete example : get_history(<pd.DataFrame>, "MSFT")
+    
+    earnings_dates : list[str]
+        list of earnings dates within range
+        NOTE: originally returned by get_earnings_dates()
+    
+    horizon : str
+        today's date + 3 months (default) as "YYYY-MM-DD"
+        NOTE: originally returned by get_earnings_dates()
+
+    Complete example : get_history(<pd.DataFrame>, "MSFT", ["YYYY-DD-MM", "YYYY-DD-MM"], "YYYY-MM-DD")
     """
     # Make ticker uppercase for plot
     label = label.upper()
-    
+
     fig = go.Figure(
         data=[go.Candlestick(x = history.index, 
                              open = history["Open"], 
@@ -287,12 +361,20 @@ def plot_candlestick(history: pd.DataFrame, label: str) -> None:
                              low = history["Low"], 
                              close = history["Close"]
     )])
+    start_date = history.index.min()
+    end_date = history.index.max()
+    # Extend x-axis to horizon
+    if horizon != "":
+        fig.update_layout(
+            xaxis_range=[history.index.min(), horizon]
+        )
+        end_date = horizon
     # Calculate total mean
     mean_value = history["Close"].mean()
     # Add horizontal dashed line for mean
     fig.add_shape(
         type = "line", 
-        x0 = history.index.min(), x1 = history.index.max(), 
+        x0 = start_date, x1 = end_date, 
         y0 = mean_value, y1 = mean_value, 
         line = dict(color = palette["stone"], width = 2, dash = "dash"), name = "Mean"
     )
@@ -302,8 +384,21 @@ def plot_candlestick(history: pd.DataFrame, label: str) -> None:
         xaxis_title = "Date",
         xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
         xaxis_rangeslider_visible = False,
-        yaxis_title = f"Close Price {label}"
+        yaxis_title = f"Close Price {label}", 
+        width=900,
+        height=400, 
     )
+    # earnings_dates = ["2024-02-01", "2023-12-10"]
+
+    # Add earnings dates as vertical lines
+    if earnings_dates != []:
+        for date in earnings_dates:
+            fig.add_shape(
+                type = "line",
+                x0=date, x1=date, 
+                y0=0, y1=1, xref="x", yref="paper", 
+                line = dict(color = palette["pink"], width = 2, dash = "dash"), name = "Earnings"
+                )
     # Show plot
     format_plot(fig)
     fig.show()
@@ -335,7 +430,6 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
     
     testing : bool
         Flag to test API calls without plotting results
-    
     """
     # NOTE: validate period and interval before API call, for faster error catching
     if not validate_period(raw_period):
@@ -370,23 +464,29 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
         # NOTE: exception already printed by get_history()
         return None
     
-    if not testing:
-        plot_candlestick(ticker_history, raw_ticker)
+    try:
+        ticker_horizon = get_horizon(ticker_history)
+    except Exception as e:
+        print(f"Error fixing horizon date: {e}")
+        ticker_horizon = ""
     
-
-# ===============================================================
-# Unit tests - with plots
-# ===============================================================
-
-# Valid ticker, period, and interval
-# run_once("aapl", "6mo", "1d")
+    try:
+        ticker_earnings_dates = get_earnings_dates(ticker, ticker_history, ticker_horizon)
+    except Exception as e:
+        print(f"Error retrieving earnings dates: {e}")
+        ticker_earnings_dates = []
+    
+    if not testing:
+        # Send raw_ticker to pass the string for plotting, not the Ticker object
+        plot_candlestick(raw_ticker, ticker_history, ticker_horizon, ticker_earnings_dates)
+    
 
 # ===============================================================
 # Unit tests - without plots - test API calls only
 # ===============================================================
 
 # Valid ticker, period, and interval
-run_once("aapl", "6mo", "1d", testing=True)
+# run_once("aapl", "6mo", "1d", testing=True)
 # Valid ticker and interval, invalid period
 # run_once("aapl", "999", "1d", testing=True)
 # Valid ticker and period, invalid interval
@@ -394,3 +494,10 @@ run_once("aapl", "6mo", "1d", testing=True)
 # Valid period and interval, invalid ticker
 # NOTE: invalid ticker "inval" returns "inval: No data found, symbol may be delisted"
 # run_once("XXXXXXXXX", "6mo", "1d", testing=True)
+
+# ===============================================================
+# Unit tests - with plots
+# ===============================================================
+
+# Valid ticker, period, and interval
+run_once("aapl", "6mo", "1d")

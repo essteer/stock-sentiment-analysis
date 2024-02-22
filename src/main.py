@@ -121,7 +121,7 @@ def format_plot(fig) -> None:
             "ticks": "outside", "tickcolor": palette["dark"], "ticklen": 5,
         },
         legend_font_color=palette["stone"],
-        margin=dict(l=80, r=20, t=40, b=20)
+        margin=dict(l=80, r=20, t=40, b=20),
     )
     fig.update_yaxes(
         title_standoff = 5
@@ -362,7 +362,8 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
                              open = history["Open"], 
                              high = history["High"], 
                              low = history["Low"], 
-                             close = history["Close"]
+                             close = history["Close"],
+                             name = "Price Data"
     )])
     start_date = history.index.min()
     end_date = history.index.max()
@@ -379,7 +380,9 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
         type = "line", 
         x0 = start_date, x1 = end_date, 
         y0 = mean_value, y1 = mean_value, 
-        line = dict(color = palette["stone"], width = 2, dash = "dash"), name = "Mean"
+        line = dict(color = palette["stone"], width = 2, dash = "dash"),
+        name = "Mean",
+        showlegend = True
     )
     # Update layout
     fig.update_layout(
@@ -394,13 +397,18 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
 
     # Add earnings dates as vertical lines
     if earnings_dates != []:
-        for date in earnings_dates:
+        reverse_earnings_dates = earnings_dates[::-1] # Reverse list so legend is chronological
+        for date in reverse_earnings_dates:
+            print(f"'{date[2:]}")
             fig.add_shape(
                 type = "line",
                 x0=date, x1=date, 
                 y0=0, y1=1, xref="x", yref="paper", 
-                line = dict(color = palette["pink"], width = 2, dash = "dash"), name = "Earnings"
+                line = dict(color = palette["pink"], width = 2, dash = "dash"), 
+                name = f"ED '{date[2:]}",
+                showlegend = True
                 )
+            
     # Show plot
     format_plot(fig)
     fig.show()
@@ -501,4 +509,4 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
 # ===============================================================
 
 # Valid ticker, period, and interval
-run_once("aapl", "6mo", "1d")
+run_once("MSFT", "6mo", "1d")

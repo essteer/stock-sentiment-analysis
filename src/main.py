@@ -387,11 +387,10 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
         xaxis_title = "Date",
         xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
         xaxis_rangeslider_visible = False,
-        yaxis_title = f"Close Price {label}", 
+        yaxis_title = f"Price {label}", 
         width=900,
         height=400, 
     )
-    # earnings_dates = ["2024-02-01", "2023-12-10"]
 
     # Add earnings dates as vertical lines
     if earnings_dates != []:

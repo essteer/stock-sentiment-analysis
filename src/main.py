@@ -354,14 +354,6 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
     
     Complete example : plot_candlestick("MSFT", <pd.DataFrame>, ["YYYY-DD-MM", "YYYY-DD-MM"], "YYYY-MM-DD")
     """
-    # Get company name for plot title
-    temp_ticker = yf.Ticker(label.upper())
-    short_name = temp_ticker.info['shortName']
-    label = f"{short_name} ({label.upper()})"
-
-    # Get currency for the y-axis label
-    currency = temp_ticker.info['currency']
-    
     fig = go.Figure(
         data=[go.Candlestick(x = history.index, 
                              open = history["Open"], 
@@ -372,10 +364,10 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
     )])
     start_date = history.index.min()
     end_date = history.index.max()
-
+    
     # Get date range information for plot title
     start_date_string = start_date.strftime("%d %b. %Y")
-    end_date_string = end_date.strftime("%d %b. %Y")
+    end_date_string = end_date.strftime("%d %b. %Y")    # here b/c end_date reassigned to horizon below
     date_range_label = f"{start_date_string} - {end_date_string}"
 
     # Extend x-axis to horizon
@@ -398,13 +390,27 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
         showlegend = True
     )
 
+    # Get company name for plot title label
+    temp_ticker = yf.Ticker(label.upper())
+    short_name = temp_ticker.info['shortName']
+    label = f"{short_name} ({label.upper()})"
+    
+    # Calculate difference between timestamps to determine interval label
+    first_entry = pd.Timestamp(history.iloc[0].name)
+    second_entry = pd.Timestamp(history.iloc[1].name)
+    entry_difference = (second_entry - first_entry).days
+    interval_label = "Daily" if entry_difference < 7 else "Weekly" if entry_difference < 28 else "Monthly"
+
+    # Get currency info for the y-axis currency label
+    currency_label = temp_ticker.info['currency']
+
     # Update layout
     fig.update_layout(
-        title = f"{label} Daily Close Price ({date_range_label})",
+        title = f"{label} {interval_label} Close Price <br>{date_range_label}",
         xaxis_title = "Date",
         xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
         xaxis_rangeslider_visible = False,
-        yaxis_title = f"Price ({currency})", 
+        yaxis_title = f"Price ({currency_label})", 
         width=900,
         height=400, 
     )

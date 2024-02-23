@@ -354,8 +354,10 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
     
     Complete example : plot_candlestick("MSFT", <pd.DataFrame>, ["YYYY-DD-MM", "YYYY-DD-MM"], "YYYY-MM-DD")
     """
-    # Make ticker uppercase for plot
-    label = label.upper()
+    # Get information for plot title
+    new_ticker = yf.Ticker(label.upper())
+    short_name = new_ticker.info['shortName']
+    label = f"{short_name} ({label.upper()})"    # Used in fig.update_layout() in the title parameter
 
     fig = go.Figure(
         data=[go.Candlestick(x = history.index, 
@@ -399,7 +401,6 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
     if earnings_dates != []:
         reverse_earnings_dates = earnings_dates[::-1] # Reverse list so legend is chronological
         for date in reverse_earnings_dates:
-            print(f"'{date[2:]}")
             fig.add_shape(
                 type = "line",
                 x0=date, x1=date, 
@@ -509,4 +510,4 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
 # ===============================================================
 
 # Valid ticker, period, and interval
-run_once("MSFT", "6mo", "1d")
+run_once("AAPL", "6mo", "1d")

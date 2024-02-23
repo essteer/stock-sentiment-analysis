@@ -354,11 +354,14 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
     
     Complete example : plot_candlestick("MSFT", <pd.DataFrame>, ["YYYY-DD-MM", "YYYY-DD-MM"], "YYYY-MM-DD")
     """
-    # Get information for plot title
-    new_ticker = yf.Ticker(label.upper())
-    short_name = new_ticker.info['shortName']
-    label = f"{short_name} ({label.upper()})"    # Used in fig.update_layout() in the title parameter
+    # Get company name for plot title
+    temp_ticker = yf.Ticker(label.upper())
+    short_name = temp_ticker.info['shortName']
+    label = f"{short_name} ({label.upper()})"
 
+    # Get currency for the y-axis label
+    currency = temp_ticker.info['currency']
+    
     fig = go.Figure(
         data=[go.Candlestick(x = history.index, 
                              open = history["Open"], 
@@ -369,14 +372,22 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
     )])
     start_date = history.index.min()
     end_date = history.index.max()
+
+    # Get date range information for plot title
+    start_date_string = start_date.strftime("%d %b. %Y")
+    end_date_string = end_date.strftime("%d %b. %Y")
+    date_range_label = f"{start_date_string} - {end_date_string}"
+
     # Extend x-axis to horizon
     if horizon != "":
         fig.update_layout(
             xaxis_range=[history.index.min(), horizon]
         )
         end_date = horizon
+
     # Calculate total mean
     mean_value = history["Close"].mean()
+
     # Add horizontal dashed line for mean
     fig.add_shape(
         type = "line", 
@@ -386,13 +397,14 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
         name = "Mean",
         showlegend = True
     )
+
     # Update layout
     fig.update_layout(
-        title = f"{label} Daily Close Price",
+        title = f"{label} Daily Close Price ({date_range_label})",
         xaxis_title = "Date",
         xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
         xaxis_rangeslider_visible = False,
-        yaxis_title = f"Price {label}", 
+        yaxis_title = f"Price ({currency})", 
         width=900,
         height=400, 
     )

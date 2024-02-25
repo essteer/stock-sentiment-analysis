@@ -330,11 +330,55 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
     return valid_earnings
 
 
+def get_short_name(ticker: yf.Ticker) -> str:
+    """
+    Gets the short name from yf.Ticker.info
+    Called by run_once()
+
+    Parameters
+    ----------
+    ticker : yfinance Ticker object
+        NOTE: originally returned by get_ticker()
+    
+    Returns
+    -------
+    name : str
+        The shortest name out of shortName and longName
+    """
+    short_name = ticker.info["shortName"]
+    long_name = ticker.info["longName"]
+    # Select shortest of the two names
+    name = min([short_name, long_name], key=len)
+    
+    return name
+
+
+def get_currency(ticker: yf.Ticker) -> str:
+    """
+    Gets the currency from yf.Ticker.info
+    Called by run_once()
+
+    Parameters
+    ----------
+    ticker : yfinance Ticker object
+        NOTE: originally returned by get_ticker()
+    
+    Returns
+    -------
+    currency : str
+        The currency stored in yf.Ticker.info["currency"]
+    """
+    currency = ticker.info["currency"]
+    
+    return currency
+
+
 # ===============================================================
 # Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
-def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[]) -> None:
+def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[], 
+                     name: str="", currency: str="Currency Undefined", interval: str="1d") -> None:
     """
     Creates a candlestick graph for a specified stock, time period and interval.
     Called by run_once()
@@ -345,18 +389,26 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
         Original ticker input validated via API call in get_ticker()
 
     history : pd.DataFrame
-        Price history for chosen ticker
-        NOTE: originally returned by get_history()
+        Price history for chosen ticker | NOTE: originally returned by get_history()
     
     horizon : str
         Today's date + 3 months (default) as "YYYY-MM-DD"
         NOTE: originally returned by get_earnings_dates()    
-
-    earnings_dates : list[str]
-        List of earnings dates within range
-        NOTE: originally returned by get_earnings_dates()
     
-    Complete example : plot_candlestick("MSFT", <pd.DataFrame>, ["YYYY-DD-MM", "YYYY-DD-MM"], "YYYY-MM-DD")
+    earnings_dates : list[str]
+        List of earnings dates within range | NOTE: originally returned by get_earnings_dates()
+    
+    name : str
+        short name of the ticker | NOTE: originally returned by get_short_name()
+    
+    currency : str
+        currency of the ticker | NOTE: originally returned by get_currency()
+    
+    interval : str
+        interval of the price history | NOTE: pre-validated by validate_interval()
+    
+    Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"], 
+    "Microsoft Corporation", "USD", "1d")
     """
     fig = go.Figure(
         data=[go.Candlestick(x = history.index, 
@@ -383,7 +435,6 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
 
     # Calculate total mean
     mean_value = history["Close"].mean()
-
     # Add horizontal dashed line for mean
     fig.add_shape(
         type = "line", 
@@ -393,32 +444,21 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
         name = "Mean",
         showlegend = True
     )
-
-    # Get company name for plot title label
-    temp_ticker = yf.Ticker(label.upper())
-    short_name = temp_ticker.info['shortName']
-    label = f"{short_name} ({label.upper()})"
-    
-    # Calculate difference between timestamps to determine interval label
-    first_entry = pd.Timestamp(history.iloc[0].name)
-    second_entry = pd.Timestamp(history.iloc[1].name)
-    entry_difference = (second_entry - first_entry).days
-    interval_label = "Daily" if entry_difference < 7 else "Weekly" if entry_difference < 28 else "Monthly"
-
-    # Get currency info for the y-axis currency label
-    currency_label = temp_ticker.info['currency']
-
+    # Get interval label for plot title
+    intervals_dict = {"1d": "Daily", "1wk": "Weekly", "1mo": "Monthly"}
+    interval_label = intervals_dict[interval.lower()]
+    # Combine name, ticker, and interval for plot title
+    ticker_label = f"{name} ({label.upper()}) {interval_label}"
     # Update layout
     fig.update_layout(
-        title = f"{label} {interval_label} Close Price <br>{date_range_label}",
+        title = f"{ticker_label} Close Price <br>{date_range_label}",
         xaxis_title = "Date",
         xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
         xaxis_rangeslider_visible = False,
-        yaxis_title = f"Price ({currency_label})", 
+        yaxis_title = f"Price ({currency})", 
         width=900,
         height=400, 
     )
-
     # Add earnings dates as vertical lines
     if earnings_dates != []:
         reverse_earnings_dates = earnings_dates[::-1] # Reverse list so legend is chronological
@@ -431,7 +471,6 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
                 name = f"ED '{date[2:]}",
                 showlegend = True
                 )
-            
     # Show plot
     format_plot(fig)
     fig.show()
@@ -507,9 +546,22 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
         print(f"Error retrieving earnings dates: {e}")
         ticker_earnings_dates = []
     
+    try:
+        ticker_name = get_short_name(ticker)
+    except Exception as e:
+        print(f"Error retrieving ticker name: {e}")
+        ticker_name = ""
+    
+    try:
+        ticker_currency = get_currency(ticker)
+    except Exception as e:
+        print(f"Error retrieving ticker currency: {e}")
+        ticker_currency = "Currency Undefined"
+    
     if not testing:
         # Send raw_ticker to pass the string for plotting, not the Ticker object
-        plot_candlestick(raw_ticker, ticker_history, ticker_horizon, ticker_earnings_dates)
+        plot_candlestick(raw_ticker, ticker_history, ticker_horizon, ticker_earnings_dates, 
+                         ticker_name, ticker_currency, raw_interval)
     
 
 # ===============================================================
@@ -518,3 +570,4 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d")
+run_once("AZN.L", "6mo", "1d")

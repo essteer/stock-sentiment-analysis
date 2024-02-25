@@ -8,6 +8,7 @@ import warnings
 import yfinance as yf
 from main import weighted_random_selection, validate_period, validate_interval
 from main import get_ticker, get_history, get_horizon, get_earnings_dates
+# NOTE: run "python -m utils.unit_tests" from src directory to test
 """
 Suppress Pandas future warning: 
 FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 

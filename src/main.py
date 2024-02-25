@@ -213,9 +213,13 @@ def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf
     # Get the ticker data
     try:
         yf_ticker = yf.Ticker(str.upper(ticker), session=current_session)
-    # TODO: test what type of exception is thrown for an invalid ticker value
     except Exception as e:
         print(e)
+        return "Invalid ticker value!"
+    # Confirm ticker object not empty (invalid ticker)
+    try:
+        _ = yf_ticker.info["symbol"]
+    except KeyError:
         return "Invalid ticker value!"
     
     return yf_ticker
@@ -481,7 +485,6 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
         print(f"Error setting session data: {e}")
         return None
     
-    # TODO: test what type of exception is thrown for an invalid ticker value
     ticker = get_ticker(raw_ticker, current_session=new_session)
     if type(ticker) != yf.Ticker:
         # NOTE: exception already printed by get_ticker()
@@ -510,22 +513,8 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
     
 
 # ===============================================================
-# Unit tests - without plots - test API calls only
+# Tests - with plots
 # ===============================================================
 
 # Valid ticker, period, and interval
-# run_once("aapl", "6mo", "1d", testing=True)
-# Valid ticker and interval, invalid period
-# run_once("aapl", "999", "1d", testing=True)
-# Valid ticker and period, invalid interval
-# run_once("aapl", "6mo", "999", testing=True)
-# Valid period and interval, invalid ticker
-# NOTE: invalid ticker "inval" returns "inval: No data found, symbol may be delisted"
-# run_once("XXXXXXXXX", "6mo", "1d", testing=True)
-
-# ===============================================================
-# Unit tests - with plots
-# ===============================================================
-
-# Valid ticker, period, and interval
-run_once("AAPL", "6mo", "1d")
+# run_once("AAPL", "6mo", "1d")

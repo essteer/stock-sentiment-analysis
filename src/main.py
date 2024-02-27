@@ -135,7 +135,7 @@ def format_plot(fig) -> None:
 def validate_period(period: str) -> bool:
     """
     Checks for valid period value prior to API calls
-    Called by run_once()
+    Called by handle_data()
     
     Parameters
     ----------
@@ -162,7 +162,7 @@ def validate_period(period: str) -> bool:
 def validate_interval(interval: str) -> bool:
     """
     Checks for valid interval value prior to API calls
-    Called by run_once()
+    Called by handle_data()
     
     Parameters
     ----------
@@ -193,7 +193,7 @@ def validate_interval(interval: str) -> bool:
 def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf.Ticker:
     """
     Gets ticker data via call to yfinance API
-    Called by run_once()
+    Called by handle_data()
     
     Parameters
     ----------
@@ -204,7 +204,7 @@ def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf
     
     current_session : requests_cache.CachedSession
         Session data for API call to yfinance
-        NOTE: originally set by weighted_random_selection() and run_once()
+        NOTE: set by weighted_random_selection() and handle_data()
     
     Returns
     -------
@@ -228,22 +228,19 @@ def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf
 def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.DataFrame | str:
     """
     Retrieves price history data from yfinance Ticker object
-    Called by run_once()
+    Called by handle_data()
     
     Parameters
     ----------
-    ticker : yfinance Ticker object
-        NOTE: originally returned by get_ticker()
+    ticker : yfinance Ticker object | NOTE: output of get_ticker()
         
-    period : str
+    period : str | NOTE: pre-validated by validate_time_ranges()
         The time period length, ending on current date minus 2 or 3 days
         Valid values : "3mo", "6mo", "1y"
-        NOTE: pre-validated by validate_time_ranges()
         
-    interval : str
+    interval : str | NOTE: pre-validated by validate_time_ranges()
         The interval frequency
         Valid values : "1d", "1wk", "1mo"
-        NOTE: pre-validated by validate_time_ranges()
         
     Complete example : get_history(<yf.Ticker>, "6mo", "1d")
     
@@ -265,13 +262,12 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
 def get_horizon(history: pd.DataFrame, horizon_months: int=3) -> str:
     """
     Calculates horizon beyond latest price date (defaults to 3 months ahead)
-    Called by run_once()
+    Called by handle_data()
     
     Parameters
     ----------
-    history : pd.DataFrame
+    history : pd.DataFrame | NOTE: output of get_history()
         Price history for chosen ticker
-        NOTE: originally returned by get_history()
 
     horizon_months : int
         No. months ahead to project earnings dates (default = 3)
@@ -296,20 +292,17 @@ def get_horizon(history: pd.DataFrame, horizon_months: int=3) -> str:
 def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -> list[str]:
     """
     Identifies earnings dates from start of period range to horizon
-    Called by run_once()
+    Called by handle_data()
 
     Parameters
     ----------
-    ticker : yfinance Ticker object
-        NOTE: originally returned by get_ticker()
+    ticker : yfinance Ticker object | NOTE: output of get_ticker()
 
-    history : pd.DataFrame
+    history : pd.DataFrame | NOTE: output of get_history()
         Price history for chosen ticker
-        NOTE: originally returned by get_history()
-
-    new_horizon : str
+        
+    new_horizon : str | NOTE: output of get_horizon()
         Today's date + horizon_months as "YYYY-MM-DD"
-        NOTE: originally returned by get_horizon()
 
     Returns
     -------
@@ -330,33 +323,63 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
     return valid_earnings
 
 
+def get_short_name(ticker: yf.Ticker) -> str:
+    """
+    Gets the short name from yf.Ticker.info
+    Called by handle_data()
+
+    Parameters
+    ----------
+    ticker : yfinance Ticker object | NOTE: output of get_ticker()
+    
+    Returns
+    -------
+    name : str
+        The shortest name out of shortName and longName
+    """
+    short_name = ticker.info["shortName"]
+    long_name = ticker.info["longName"]
+    # Select shortest of the two names
+    name = min([short_name, long_name], key=len)
+    
+    return name
+
+
+def get_currency(ticker: yf.Ticker) -> str:
+    """
+    Gets the currency from yf.Ticker.info
+    Called by handle_data()
+
+    Parameters
+    ----------
+    ticker : yfinance Ticker object | NOTE: output of get_ticker()
+    
+    Returns
+    -------
+    currency : str
+        The currency stored in yf.Ticker.info["currency"]
+    """
+    currency = ticker.info["currency"]
+    
+    return currency
+
+
 # ===============================================================
 # Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
-def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[]) -> None:
+def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[], 
+                     name: str="", currency: str="Currency Undefined", interval: str="1d") -> None:
     """
     Creates a candlestick graph for a specified stock, time period and interval.
     Called by run_once()
     
     Parameters
     ----------
-    label : str
-        Original ticker input validated via API call in get_ticker()
-
-    history : pd.DataFrame
-        Price history for chosen ticker
-        NOTE: originally returned by get_history()
+    See run_once() and handle_data() functions for parameter descriptions
     
-    horizon : str
-        Today's date + 3 months (default) as "YYYY-MM-DD"
-        NOTE: originally returned by get_earnings_dates()    
-
-    earnings_dates : list[str]
-        List of earnings dates within range
-        NOTE: originally returned by get_earnings_dates()
-    
-    Complete example : plot_candlestick("MSFT", <pd.DataFrame>, ["YYYY-DD-MM", "YYYY-DD-MM"], "YYYY-MM-DD")
+    Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"], 
+    "Microsoft Corporation", "USD", "1d")
     """
     fig = go.Figure(
         data=[go.Candlestick(x = history.index, 
@@ -383,7 +406,6 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
 
     # Calculate total mean
     mean_value = history["Close"].mean()
-
     # Add horizontal dashed line for mean
     fig.add_shape(
         type = "line", 
@@ -393,32 +415,21 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
         name = "Mean",
         showlegend = True
     )
-
-    # Get company name for plot title label
-    temp_ticker = yf.Ticker(label.upper())
-    short_name = temp_ticker.info['shortName']
-    label = f"{short_name} ({label.upper()})"
-    
-    # Calculate difference between timestamps to determine interval label
-    first_entry = pd.Timestamp(history.iloc[0].name)
-    second_entry = pd.Timestamp(history.iloc[1].name)
-    entry_difference = (second_entry - first_entry).days
-    interval_label = "Daily" if entry_difference < 7 else "Weekly" if entry_difference < 28 else "Monthly"
-
-    # Get currency info for the y-axis currency label
-    currency_label = temp_ticker.info['currency']
-
+    # Get interval label for plot title
+    intervals_dict = {"1d": "Daily", "1wk": "Weekly", "1mo": "Monthly"}
+    interval_label = intervals_dict[interval.lower()]
+    # Combine name, ticker, and interval for plot title
+    ticker_label = f"{name} ({ticker_code.upper()}) {interval_label}"
     # Update layout
     fig.update_layout(
-        title = f"{label} {interval_label} Close Price <br>{date_range_label}",
+        title = f"{ticker_label} Close Price <br>{date_range_label}",
         xaxis_title = "Date",
         xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
         xaxis_rangeslider_visible = False,
-        yaxis_title = f"Price ({currency_label})", 
+        yaxis_title = f"Price ({currency})", 
         width=900,
         height=400, 
     )
-
     # Add earnings dates as vertical lines
     if earnings_dates != []:
         reverse_earnings_dates = earnings_dates[::-1] # Reverse list so legend is chronological
@@ -431,37 +442,43 @@ def plot_candlestick(label: str, history: pd.DataFrame, horizon: str, earnings_d
                 name = f"ED '{date[2:]}",
                 showlegend = True
                 )
-            
     # Show plot
     format_plot(fig)
     fig.show()
 
 
 # ===============================================================
-# Handler function
+# Handler functions
 # ===============================================================
 
-def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", testing=False) -> None:
+def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") -> tuple[yf.Ticker, pd.DataFrame, str, list[str], str, str]:
     """
-    Handles function calls for one API call and resulting plots
+    Handles function calls for one API call and resultant data processing
+    Called by run_once()
     
     Parameters
     ----------
-    ticker : str
-        The official abbreviation of the stock
-        Valid values : Any official stock ticker symbol that exists on Yahoo! Finance
-        eg. "msft"
-        
-    period : str
-        The time period length, ending on current date minus 2 or 3 days
-        Valid values : "3mo", "6mo", "1y"
-        
-    interval : str
-        The interval frequency
-        Valid values : "1d", "1wk", "1mo"
+    See run_once() function for parameter descriptions
     
-    testing : bool
-        Flag to test API calls without plotting results
+    Returns
+    -------
+    tick : yf.Ticker | NOTE: output of API call in get_ticker()
+        yFinance Ticker object
+
+    tick_history : pd.DataFrame | NOTE: output of get_history()
+        Price history for chosen ticker
+    
+    tick_horizon : str | NOTE: output of get_horizon()    
+        Today's date + 3 months (default) as "YYYY-MM-DD"
+    
+    earnings_dates : list[str] | NOTE: output of get_earnings_dates()
+        List of earnings dates within range
+    
+    tick_name : str | NOTE: output of get_short_name()
+        short name of the ticker
+    
+    tick_currency : str | NOTE: output of get_currency()
+        currency of the ticker
     """
     # NOTE: validate period and interval before API call, for faster error catching
     if not validate_period(raw_period):
@@ -471,8 +488,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
         print('Invalid interval value! Try "1d", "1wk", or "1mo"')
         return None
     
-    # Set session data
-    try:
+    try:  # Set session data
         new_session = requests_cache.CachedSession("yfinance.cache")
         # Get weighted random referer and user-agent values
         referer = weighted_random_selection(REFERERS, REFERER_PROBS)
@@ -485,36 +501,103 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", tes
         print(f"Error setting session data: {e}")
         return None
     
-    ticker = get_ticker(raw_ticker, current_session=new_session)
-    if type(ticker) != yf.Ticker:
+    # Retrieve Ticker object
+    tick = get_ticker(raw_tick, current_session=new_session)
+    if type(tick) != yf.Ticker:
         # NOTE: exception already printed by get_ticker()
         return None
     
-    ticker_history = get_history(ticker, raw_period, raw_interval)
-    if type(ticker_history) != pd.DataFrame:
+    # Retrieve price history
+    tick_history = get_history(tick, raw_period, raw_interval)
+    if type(tick_history) != pd.DataFrame:
         # NOTE: exception already printed by get_history()
         return None
     
-    try:
-        ticker_horizon = get_horizon(ticker_history)
+    try:  # Retrieve horizon date
+        tick_horizon = get_horizon(tick_history)
     except Exception as e:
         print(f"Error fixing horizon date: {e}")
-        ticker_horizon = ""
+        tick_horizon = ""
     
-    try:
-        ticker_earnings_dates = get_earnings_dates(ticker, ticker_history, ticker_horizon)
+    try:  # Retrieve earnings data (if applicable)
+        tick_earnings_dates = get_earnings_dates(tick, tick_history, tick_horizon)
     except Exception as e:
         print(f"Error retrieving earnings dates: {e}")
-        ticker_earnings_dates = []
+        tick_earnings_dates = []
     
-    if not testing:
-        # Send raw_ticker to pass the string for plotting, not the Ticker object
-        plot_candlestick(raw_ticker, ticker_history, ticker_horizon, ticker_earnings_dates)
+    try:  # Retrieve short name of Ticker object
+        tick_name = get_short_name(tick)
+    except Exception as e:
+        print(f"Error retrieving ticker name: {e}")
+        tick_name = ""
     
+    try:  # Retrieve currency of Ticker object
+        tick_currency = get_currency(tick)
+    except Exception as e:
+        print(f"Error retrieving ticker currency: {e}")
+        tick_currency = "Currency Undefined"
+    
+    return tick, tick_history, tick_horizon, tick_earnings_dates, tick_name, tick_currency
+    
+    
+def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str, tick_earnings_dates: list[str], 
+                         tick_name: str, tick_currency: str="Currency Undefined", raw_interval: str="1d") -> None:
+    """
+    Calls plot_candlestick() to plot price data
+    Called by run_once()
+    
+    Parameters
+    ----------
+    See run_once() and handle_data() functions for parameter descriptions
+    """
+    # Create candlestick plot
+    plot_candlestick(raw_tick, tick_history, tick_horizon, tick_earnings_dates, 
+                         tick_name, tick_currency, raw_interval)
+
+
+def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", show_plots=False) -> None:
+    """
+    Master function: 
+        Calls handle_data() to obtain and process data
+        Calls handle_plots() to generate plots
+    
+    Parameters
+    ----------
+    raw_ticker : str
+        The official abbreviation of the stock
+        Valid values : Any official stock ticker symbol that exists on Yahoo! Finance
+        eg. "msft"
+        
+    raw_period : str
+        The time period length, ending on current date minus 2 or 3 days
+        Valid values : "3mo", "6mo", "1y"
+        
+    raw_interval : str
+        The interval frequency
+        Valid values : "1d", "1wk", "1mo"
+        
+    show_plots : bool
+        Boolean flag to determine whether to call plot functions (default = False)
+    """
+    try:
+        # Retain t_obj (Ticker object) for further use
+        t_obj, t_hist, t_horizon, t_earn_dates, t_name, t_curr =  handle_data(raw_ticker, raw_period, raw_interval)
+    
+        if show_plots == True:
+            try:
+                # Send raw_ticker to pass the string for plotting, not the Ticker object
+                handle_plots(raw_ticker, t_hist, t_horizon, t_earn_dates, t_name, t_curr, raw_interval)
+            except Exception as e:
+                print(f"Error during plot handling: {e}")
+    
+    except Exception as e:
+        print(f"Error during data handling: {e}")
+
 
 # ===============================================================
 # Tests - with plots
 # ===============================================================
 
 # Valid ticker, period, and interval
-# run_once("AAPL", "6mo", "1d")
+# run_once("AAPL", "6mo", "1d", True)
+# run_once("AZN.L", "6mo", "1d", True)

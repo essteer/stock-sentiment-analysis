@@ -368,30 +368,30 @@ def get_currency(ticker: yf.Ticker) -> str:
 # Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
-def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[], 
-                     name: str="", currency: str="Currency Undefined", interval: str="1d") -> None:
+def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[],
+                     name: str="", currency: str="Currency Undefined", period: str="3mo", interval: str="1d") -> None:
     """
     Creates a candlestick graph for a specified stock, time period and interval.
     Called by run_once()
-    
+
     Parameters
     ----------
     See run_once() and handle_data() functions for parameter descriptions
-    
-    Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"], 
+
+    Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"],
     "Microsoft Corporation", "USD", "1d")
     """
     fig = go.Figure(
-        data=[go.Candlestick(x = history.index, 
-                             open = history["Open"], 
-                             high = history["High"], 
-                             low = history["Low"], 
+        data=[go.Candlestick(x = history.index,
+                             open = history["Open"],
+                             high = history["High"],
+                             low = history["Low"],
                              close = history["Close"],
                              name = "Price Data"
     )])
     start_date = history.index.min()
     end_date = history.index.max()
-    
+
     # Get date range information for plot title
     start_date_string = start_date.strftime("%d %b. %Y")
     end_date_string = end_date.strftime("%d %b. %Y")    # here b/c end_date reassigned to horizon below
@@ -408,27 +408,32 @@ def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earn
     mean_value = history["Close"].mean()
     # Add horizontal dashed line for mean
     fig.add_shape(
-        type = "line", 
-        x0 = start_date, x1 = end_date, 
-        y0 = mean_value, y1 = mean_value, 
+        type = "line",
+        x0 = start_date, x1 = end_date,
+        y0 = mean_value, y1 = mean_value,
         line = dict(color = palette["stone"], width = 2, dash = "dash"),
         name = "Mean",
         showlegend = True
     )
+    # Get period to determine x-axis date display
+    periods_dict = {"3mo": 7, "6mo": 7, "1y": 14}
+    period_label = periods_dict[period.lower()]
+    
     # Get interval label for plot title
     intervals_dict = {"1d": "Daily", "1wk": "Weekly", "1mo": "Monthly"}
     interval_label = intervals_dict[interval.lower()]
+
     # Combine name, ticker, and interval for plot title
     ticker_label = f"{name} ({ticker_code.upper()}) {interval_label}"
     # Update layout
     fig.update_layout(
         title = f"{ticker_label} Close Price <br>{date_range_label}",
         xaxis_title = "Date",
-        xaxis = {"tickangle": 45, "dtick": 86400000*7, "tickformat": "%Y-%m-%d"},
+        xaxis = {"tickangle": 45, "dtick": 86400000*period_label, "tickformat": "%Y-%m-%d"},
         xaxis_rangeslider_visible = False,
-        yaxis_title = f"Price ({currency})", 
+        yaxis_title = f"Price ({currency})",
         width=900,
-        height=400, 
+        height=400,
     )
     # Add earnings dates as vertical lines
     if earnings_dates != []:
@@ -436,9 +441,9 @@ def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earn
         for date in reverse_earnings_dates:
             fig.add_shape(
                 type = "line",
-                x0=date, x1=date, 
-                y0=0, y1=1, xref="x", yref="paper", 
-                line = dict(color = palette["pink"], width = 2, dash = "dash"), 
+                x0=date, x1=date,
+                y0=0, y1=1, xref="x", yref="paper",
+                line = dict(color = palette["pink"], width = 2, dash = "dash"),
                 name = f"ED '{date[2:]}",
                 showlegend = True
                 )
@@ -540,19 +545,20 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
     return tick, tick_history, tick_horizon, tick_earnings_dates, tick_name, tick_currency
     
     
-def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str, tick_earnings_dates: list[str], 
-                         tick_name: str, tick_currency: str="Currency Undefined", raw_interval: str="1d") -> None:
+def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str, 
+                 tick_earnings_dates: list[str], tick_name: str, tick_currency: str="Currency Undefined", 
+                 raw_period: str="3mo", raw_interval: str="1d") -> None:
     """
     Calls plot_candlestick() to plot price data
     Called by run_once()
-    
+
     Parameters
     ----------
     See run_once() and handle_data() functions for parameter descriptions
     """
     # Create candlestick plot
-    plot_candlestick(raw_tick, tick_history, tick_horizon, tick_earnings_dates, 
-                         tick_name, tick_currency, raw_interval)
+    plot_candlestick(raw_tick, tick_history, tick_horizon, tick_earnings_dates,
+                         tick_name, tick_currency, raw_period, raw_interval)
 
 
 def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", show_plots=False) -> None:
@@ -586,7 +592,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
         if show_plots == True:
             try:
                 # Send raw_ticker to pass the string for plotting, not the Ticker object
-                handle_plots(raw_ticker, t_hist, t_horizon, t_earn_dates, t_name, t_curr, raw_interval)
+                handle_plots(raw_ticker, t_hist, t_horizon, t_earn_dates, t_name, t_curr, raw_period, raw_interval)
             except Exception as e:
                 print(f"Error during plot handling: {e}")
     
@@ -600,4 +606,5 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d", True)
+run_once("AAPL", "1y", "1d", True)
 # run_once("AZN.L", "6mo", "1d", True)

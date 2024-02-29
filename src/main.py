@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
+import os
 import random
-import requests_cache
+import requests
 import yfinance as yf
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from dotenv import load_dotenv
 import warnings
 """
 Suppress Pandas future warning: 
@@ -14,6 +16,9 @@ and will be removed in a future version. Use pd.to_timedelta instead.
 df.index += _pd.TimedeltaIndex(dst_error_hours, 'h')
 """
 warnings.filterwarnings("ignore", category=FutureWarning, module="yfinance")
+# Load dotenv environment
+load_dotenv()
+NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 
 # ===============================================================
 # Header data for randomised referer and user-agent values
@@ -58,7 +63,7 @@ USER_AGENT_PROBS = [
 ]
 
 # ===============================================================
-# Random header data function
+# API request functions
 # ===============================================================
 
 def weighted_random_selection(sample_space: list[str], probs: list[float]) -> str:
@@ -84,6 +89,35 @@ def weighted_random_selection(sample_space: list[str], probs: list[float]) -> st
 
     return weighted_random_selection[0]
 
+
+def get_session(news_api=False) -> requests.Session:
+    """
+    Creates a new session for an API request
+
+    Parameters
+    ----------
+    news_api : bool
+        Flag to add API key for News API calls
+
+    Returns
+    -------
+    session : requests.Session
+        New session object for API requests
+    """
+    # Set session data
+    session = requests.Session()
+    # Get weighted random referer and user-agent values
+    referer = weighted_random_selection(REFERERS, REFERER_PROBS)
+    user_agent = weighted_random_selection(USER_AGENTS, USER_AGENT_PROBS)
+    # Assign values to session header
+    session.headers["User-Agent"] = user_agent
+    session.headers["Referer"] = referer
+    session.headers["Upgrade-Insecure-Requests"] = "1"
+
+    if news_api:
+      session.headers["X-Api-Key"] = NEWS_API_KEY
+    
+    return session
 
 # ===============================================================
 # Plot palette and template
@@ -190,7 +224,7 @@ def validate_interval(interval: str) -> bool:
 # Functions to call and process yfinance API data
 # ===============================================================
 
-def get_ticker(ticker: str, current_session: requests_cache.CachedSession) -> yf.Ticker:
+def get_ticker(ticker: str, current_session: requests.Session) -> yf.Ticker:
     """
     Gets ticker data via call to yfinance API
     Called by handle_data()
@@ -493,15 +527,8 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
         print('Invalid interval value! Try "1d", "1wk", or "1mo"')
         return None
     
-    try:  # Set session data
-        new_session = requests_cache.CachedSession("yfinance.cache")
-        # Get weighted random referer and user-agent values
-        referer = weighted_random_selection(REFERERS, REFERER_PROBS)
-        user_agent = weighted_random_selection(USER_AGENTS, USER_AGENT_PROBS)
-        # Assign values to new_session header
-        new_session.headers["User-Agent"] = user_agent
-        new_session.headers["Referer"] = referer
-        new_session.headers["Upgrade-Insecure-Requests"] = "1"
+    try:  # Retrieve new session
+        new_session = get_session()
     except Exception as e:
         print(f"Error setting session data: {e}")
         return None
@@ -606,5 +633,16 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d", True)
-run_once("AAPL", "1y", "1d", True)
+# run_once("AAPL", "1y", "1d", True)
 # run_once("AZN.L", "6mo", "1d", True)
+
+# ===============================================================
+# News API test
+# ===============================================================
+
+# new_session = get_session(news_api=True)
+# BASE_URL = "https://newsapi.org/v2/"
+# url = BASE_URL + "top-headlines?country=us"
+# response = new_session.get(url, headers=new_session.headers)
+# data = response.json()
+# print(data["articles"][0])

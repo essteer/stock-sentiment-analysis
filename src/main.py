@@ -202,14 +202,14 @@ def validate_interval(interval: str) -> bool:
     ----------
     interval : str
         The interval frequency
-        Valid values : "1d", "1wk", "1mo"
+        Valid values : "1d", "1wk"
         
     Returns
     -------
     bool : True if interval valid, else False
     """
     # Selected valid arguments as per yfinance documentation
-    valid_interval_values = ["1d", "1wk", "1mo"]
+    valid_interval_values = ["1d", "1wk"]
     try:
         interval = str.lower(interval)
         if interval not in valid_interval_values:
@@ -274,7 +274,7 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
         
     interval : str | NOTE: pre-validated by validate_time_ranges()
         The interval frequency
-        Valid values : "1d", "1wk", "1mo"
+        Valid values : "1d", "1wk"
         
     Complete example : get_history(<yf.Ticker>, "6mo", "1d")
     
@@ -454,7 +454,7 @@ def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earn
     period_label = periods_dict[period.lower()]
     
     # Get interval label for plot title
-    intervals_dict = {"1d": "Daily", "1wk": "Weekly", "1mo": "Monthly"}
+    intervals_dict = {"1d": "Daily", "1wk": "Weekly"}
     interval_label = intervals_dict[interval.lower()]
 
     # Combine name, ticker, and interval for plot title
@@ -524,7 +524,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
         print('Invalid period value! Try "3mo", "6mo", or "1y"')
         return None
     if not validate_interval(raw_interval):
-        print('Invalid interval value! Try "1d", "1wk", or "1mo"')
+        print('Invalid interval value! Try "1d" or "1wk"')
         return None
     
     try:  # Retrieve new session
@@ -607,7 +607,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
         
     raw_interval : str
         The interval frequency
-        Valid values : "1d", "1wk", "1mo"
+        Valid values : "1d", "1wk"
         
     show_plots : bool
         Boolean flag to determine whether to call plot functions (default = False)

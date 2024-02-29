@@ -435,8 +435,8 @@ def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earn
         xaxis = {"tickangle": 45, "dtick": 86400000*period_label, "tickformat": "%Y-%m-%d"},
         xaxis_rangeslider_visible = False,
         yaxis_title = f"Price ({currency})",
-        width=900,
-        height=400,
+        width=705,
+        height=420,
     )
     # Add earnings dates as vertical lines
     if earnings_dates != []:
@@ -616,7 +616,9 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 # run_once("AZN.L", "6mo", "1d", True)
 
 st.title("Stock Sentiment Analysis")
-st.write("These are instructions on how to run this")
+st.subheader(
+    "This application displays historical price data and general stock sentiment which is based on news headlines over the last 30 days."
+    )
 
 # Create columns
 col1, col2, col3 = st.columns(3)

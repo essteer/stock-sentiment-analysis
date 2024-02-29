@@ -1,11 +1,12 @@
 # -*- coding: utf-8 -*-
-import pandas as pd
-import random
-import requests_cache
-import time
-import unittest
-import warnings
+import os, random, requests, time, warnings
 import yfinance as yf
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+from dotenv import load_dotenv
+import unittest
 from main import weighted_random_selection, validate_period, validate_interval
 from main import get_ticker, get_history, get_horizon, get_earnings_dates
 # NOTE: run "python -m utils.unit_tests" from src directory to test
@@ -87,11 +88,11 @@ class UnitTestsAPI(unittest.TestCase):
 
     def test_validate_interval(self):
         # Test valid lowercase and uppercase values
-        for interval in ["1d", "1wk", "1mo", "1D", "1WK", "1MO"]:
+        for interval in ["1d", "1wk", "1D", "1WK"]:
             result = validate_interval(interval)
             self.assertTrue(result, f"Error: valid interval '{interval}' rejected by validate_interval()")
         # Test invalid values
-        for interval in ["1dy", "1m", "6mo", "1y", "AAPL"]:
+        for interval in ["1dy", "1mo", "6mo", "1y", "AAPL"]:
             result = validate_interval(interval)
             self.assertFalse(result, f"Error: invalid interval '{interval}' accepted by validate_interval()")
 
@@ -100,7 +101,7 @@ class UnitTestsAPI(unittest.TestCase):
         # Test valid ticker values
         for ticker in ["0293.HK", "6758.T", "AAPL", "aapl", "AZN.L", "CPR.MI", "mc.Pa", "SPY"]:
             
-            new_session = requests_cache.CachedSession("yfinance.cache")
+            new_session = requests.Session()
             # Get weighted random referer and user-agent values
             referer = weighted_random_selection(REFERERS, REFERER_PROBS)
             user_agent = weighted_random_selection(USER_AGENTS, USER_AGENT_PROBS)
@@ -117,7 +118,7 @@ class UnitTestsAPI(unittest.TestCase):
         # Test invalid ticker values
         for ticker in ["Lorem ipsum", "100000", "xxxxxxxxx"]:
             
-            new_session = requests_cache.CachedSession("yfinance.cache")
+            new_session = requests.Session()
             # Get weighted random referer and user-agent values
             referer = weighted_random_selection(REFERERS, REFERER_PROBS)
             user_agent = weighted_random_selection(USER_AGENTS, USER_AGENT_PROBS)
@@ -134,7 +135,7 @@ class UnitTestsAPI(unittest.TestCase):
     
     def test_get_history(self):
         # Set default session
-        new_session = requests_cache.CachedSession("yfinance.cache")
+        new_session = requests.Session()
         # Set baseline ticker value
         ticker_label = "AAPL"
         test_ticker = get_ticker(ticker_label, current_session=new_session)
@@ -160,7 +161,7 @@ class UnitTestsAPI(unittest.TestCase):
     
     def test_get_horizon(self):
         # Set default session
-        new_session = requests_cache.CachedSession("yfinance.cache")
+        new_session = requests.Session()
         # Set baseline ticker value
         ticker_label = "AAPL"
         test_ticker = get_ticker(ticker_label, current_session=new_session)
@@ -218,7 +219,7 @@ class UnitTestsAPI(unittest.TestCase):
     
     def test_get_earnings_dates(self):
         # Set default session
-        new_session = requests_cache.CachedSession("yfinance.cache")
+        new_session = requests.Session()
         
         # Test stock with earnings dates
         ticker_label = "AAPL"

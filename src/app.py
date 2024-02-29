@@ -628,12 +628,12 @@ with col2:
     period_dd = st.selectbox(label = "Period:", options = ["Last 3 months", "Last 6 months", "Last 12 months"], index = 2)
 
 with col3: 
-    interval_dd = st.selectbox(label = "Interval:", options = ["1 day", "1 week", "1 month"], index = 0)
+    interval_dd = st.selectbox(label = "Interval:", options = ["1 day", "1 week"], index = 0)
 
 if st.button("Run"):
     sl_ticker = ticker_input
     sl_period = "3mo" if period_dd == "Last 3 months" else "6mo" if period_dd == "Last 6 months" else "1y"
-    sl_interval = "1d" if interval_dd == "1 day" else "1wk" if interval_dd == "1 week" else "1mo"
+    sl_interval = "1d" if interval_dd == "1 day" else "1wk"
     run_once(sl_ticker, sl_period, sl_interval, True)
 
    

@@ -1,14 +1,11 @@
 # -*- coding: utf-8 -*-
-import os
-import random
-import requests
+import os, random, requests, time, warnings
 import yfinance as yf
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
-import warnings
 """
 Suppress Pandas future warning: 
 FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
@@ -399,6 +396,113 @@ def get_currency(ticker: yf.Ticker) -> str:
 
 
 # ===============================================================
+# Functions to call and process News API data
+# ===============================================================
+
+def get_news(short_name: str) -> tuple[dict, str]:
+    """
+    Makes call to News API and returns response data
+
+    Parameters
+    ----------
+    short_name : str | NOTE: output of get_short_name()
+        Short name of the ticker
+
+    Returns
+    -------
+    data : dict
+        Dictionary of JSON response from News API call
+    """
+    # Prepare name for search query
+    name = short_name[:].lower()
+    name = name.replace("-", " ")
+    name_list = name.split()
+
+    if len(name_list) == 1:
+        query = name_list[0]
+    # Take first two words of ticker name if applicable
+    else:
+        query = f"{name_list[0]} OR ({name_list[0]} AND {name_list[1]})"
+
+    # NOTE: max URL length = 500 characters
+    base_url = "https://newsapi.org/v2/everything?"
+    # Break domains in half for easier code review
+    domains_1 = "aljazeera.com,bbc.com,businessinsider.com,cnn.com,forbes.com,indiatimes.com,"
+    domains_2 = "investing.com,marketwatch.com,marketscreener.com,wsj.com,washingtonpost.com"
+    domains = domains_1 + domains_2
+    # Compile query string
+    query_string = {"q":query,"language":"en","domains":domains}
+
+    # Loop with short delay to handle one-off API errors
+    for i in range(3):
+        try:
+            # Get new session for API call
+            news_session = get_session(news_api=True)
+            # Make API call
+            response = news_session.get(base_url, headers=news_session.headers, params=query_string)
+            # Extract data from response
+            data = response.json()
+
+            check_articles = len(data["articles"])
+            if check_articles >= 1:
+                return data, name_list[0]
+
+        except KeyError:
+            time.sleep(1)
+            continue
+        
+        except Exception as e:
+            print(f"Error getting news: {e}")
+            time.sleep(1)
+            continue
+
+    # Return empty dict if calls fail (or articles empty)
+    return {}, name_list[0]
+
+
+def get_articles(data: dict, query: str) -> tuple[list[str]]:
+    """
+    Extracts relevant articles from news data
+
+    Parameters
+    ----------
+    data : dict | NOTE: output of get_news()
+        Dictionary of JSON response from News API call
+    
+    query : str | NOTE: output of get_news()
+        First word of ticker name as used for news query
+    
+    Returns
+    -------
+    dates : list[str]
+        Dates of articles relevant to ticker as YYYY-MM-DD
+    
+    headlines : list[str]
+        Titles of articles relevant to ticker
+    """
+    articles = data["articles"]
+    qry = query.lower()
+    dates, titles = [], []
+
+    for article in articles:
+        try:
+            # Confirm article is relevant to ticker
+            art_title = article["title"].lower()
+            art_desc = article["description"].lower()
+            art_cont = article["content"].lower()
+            if qry not in art_title and qry not in art_desc and qry not in art_cont:
+                continue
+            else:
+                # Get YYYY-MM-DD for publish date
+                dates.append(article["publishedAt"][0:10])
+                titles.append(article["title"])
+        
+        except KeyError:
+            continue
+    
+    return dates, titles
+
+# ===============================================================
 # Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
@@ -571,7 +675,39 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
     
     return tick, tick_history, tick_horizon, tick_earnings_dates, tick_name, tick_currency
     
+
+def handle_news(ticker_name: str):
+    """
+    Handles function calls for one API call and resultant data processing
+    Called by run_once()
+
+    Parameters
+    ----------
+    ticker_name : str | NOTE: output of get_short_name()
+        Short name of ticker for new queries
     
+    Returns
+    -------
+    pub_dates : list[str] | NOTE: output of get_articles()
+        List of dates for relevant articles
+    
+    pub_titles : list[str] | NOTE: output of get_articles()
+        List of titles for relevant articles
+    """
+    # Get news data based on ticker name
+    news_data, query_name = get_news(ticker_name)
+
+    if news_data != {} and query_name != "":
+        # Get lists of relevant articles and publication dates
+        pub_dates, pub_titles = get_articles(news_data, query_name)
+    
+    else:
+        # Return empty lists if no news data obtained
+        return [], []
+
+    return pub_dates, pub_titles
+
+
 def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str, 
                  tick_earnings_dates: list[str], tick_name: str, tick_currency: str="Currency Undefined", 
                  raw_period: str="3mo", raw_interval: str="1d") -> None:
@@ -590,39 +726,46 @@ def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str,
 
 def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", show_plots=False) -> None:
     """
-    Master function: 
+    Master function:
         Calls handle_data() to obtain and process data
+        Calls handle_news() to obtain and process news data
         Calls handle_plots() to generate plots
-    
+
     Parameters
     ----------
     raw_ticker : str
         The official abbreviation of the stock
         Valid values : Any official stock ticker symbol that exists on Yahoo! Finance
         eg. "msft"
-        
+
     raw_period : str
         The time period length, ending on current date minus 2 or 3 days
         Valid values : "3mo", "6mo", "1y"
-        
+
     raw_interval : str
         The interval frequency
         Valid values : "1d", "1wk"
-        
+
     show_plots : bool
         Boolean flag to determine whether to call plot functions (default = False)
     """
     try:
         # Retain t_obj (Ticker object) for further use
         t_obj, t_hist, t_horizon, t_earn_dates, t_name, t_curr =  handle_data(raw_ticker, raw_period, raw_interval)
-    
+
+        try:
+            # Get news headlines for ticker
+            article_dates, article_titles = handle_news(t_name)
+        except Exception as e:
+            print(f"Error getting news data: {e}")
+
         if show_plots == True:
             try:
                 # Send raw_ticker to pass the string for plotting, not the Ticker object
                 handle_plots(raw_ticker, t_hist, t_horizon, t_earn_dates, t_name, t_curr, raw_period, raw_interval)
             except Exception as e:
                 print(f"Error during plot handling: {e}")
-    
+
     except Exception as e:
         print(f"Error during data handling: {e}")
 
@@ -646,3 +789,8 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 # response = new_session.get(url, headers=new_session.headers)
 # data = response.json()
 # print(data["articles"][0])
+
+# demo_name = "Ford Motor Company"
+# article_dates, article_titles = handle_news(demo_name)
+# print(len(article_dates))
+# print(len(article_titles))

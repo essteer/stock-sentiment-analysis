@@ -1,8 +1,6 @@
-import streamlit as st
-import plotly.graph_objects as go  # Or import plotly.express as px for simpler charts
-
 # -*- coding: utf-8 -*-
 import random
+import time
 import requests_cache
 import yfinance as yf
 import pandas as pd
@@ -10,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import warnings
+import streamlit as st
 # """
 # Suppress Pandas future warning: 
 # FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
@@ -632,10 +631,20 @@ with col2:
 with col3: 
     interval_dd = st.selectbox(label = "Interval:", options = ["1 day", "1 week"], index = 0)
 
-if st.button("Run"):
-    sl_ticker = ticker_input
-    sl_period = "3mo" if period_dd == "Last 3 months" else "6mo" if period_dd == "Last 6 months" else "1y"
-    sl_interval = "1d" if interval_dd == "1 day" else "1wk"
-    run_once(sl_ticker, sl_period, sl_interval, True)
+col4, col5, col6 = st.columns(3)
 
-   
+with col4:
+    if st.button("Generate plot"):
+        sl_ticker = ticker_input
+        sl_period = "3mo" if period_dd == "Last 3 months" else "6mo" if period_dd == "Last 6 months" else "1y"
+        sl_interval = "1d" if interval_dd == "1 day" else "1wk"
+        # run_once(sl_ticker, sl_period, sl_interval, True)
+
+        # Display progress bar and call run_once in the same thread
+        with col5:
+            # st.progress(100, "Generating plot...")
+            with st.spinner("Generating..."):
+                time.sleep(1.0)
+        run_once(sl_ticker, sl_period, sl_interval, True)
+        # with col6:
+        #     st.success("Plot generated successfully!")  # Update UI after run_once finishes

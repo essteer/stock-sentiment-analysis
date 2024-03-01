@@ -587,10 +587,6 @@ def get_rolling_averages(sent_data: dict) -> pd.DataFrame:
 # Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
-# ===============================================================
-# Candlestick plot for selected ticker, period and interval
-# ===============================================================
-
 def plot_candlestick(fig: go.Figure, ticker_code: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[],
                      name: str="", currency: str="Currency Undefined", period: str="3mo", interval: str="1d") -> None:
     """

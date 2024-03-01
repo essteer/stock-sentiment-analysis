@@ -2,10 +2,12 @@
 import os, random, requests, time, warnings
 import yfinance as yf
 import pandas as pd
-import plotly.express as px
+import plotly.express as px  # TODO remove this import if not used for sentiment plots
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
+import spacy
+import spacy_transformers  # required for transformer model
 """
 Suppress Pandas future warning: 
 FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
@@ -155,7 +157,7 @@ def format_plot(fig) -> None:
         margin=dict(l=80, r=20, t=40, b=20),
     )
     fig.update_yaxes(
-        title_standoff = 5
+        title_standoff=5
     )
 
 
@@ -221,7 +223,7 @@ def validate_interval(interval: str) -> bool:
 # Functions to call and process yfinance API data
 # ===============================================================
 
-def get_ticker(ticker: str, current_session: requests.Session) -> yf.Ticker:
+def get_ticker(ticker: str, current_session: requests.Session) -> yf.Ticker | str:
     """
     Gets ticker data via call to yfinance API
     Called by handle_data()
@@ -283,7 +285,7 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
     valid_interval = str.lower(interval)
     # Pull stock price dataframe, adjusted for corporate actions (stock splits, dividends)
     try:
-        history = ticker.history(period = valid_period, interval = valid_interval, auto_adjust = True)
+        history = ticker.history(period=valid_period, interval=valid_interval, auto_adjust=True)
     except Exception as e:
         return f"Error retrieving price history: {e}" 
     
@@ -412,6 +414,9 @@ def get_news(short_name: str) -> tuple[dict, str]:
     -------
     data : dict
         Dictionary of JSON response from News API call
+    
+    name_list[0] : str
+        First term of search query used
     """
     # Prepare name for search query
     name = short_name[:].lower()
@@ -450,7 +455,7 @@ def get_news(short_name: str) -> tuple[dict, str]:
         except KeyError:
             time.sleep(1)
             continue
-        
+
         except Exception as e:
             print(f"Error getting news: {e}")
             time.sleep(1)
@@ -468,16 +473,16 @@ def get_articles(data: dict, query: str) -> tuple[list[str]]:
     ----------
     data : dict | NOTE: output of get_news()
         Dictionary of JSON response from News API call
-    
+
     query : str | NOTE: output of get_news()
         First word of ticker name as used for news query
-    
+
     Returns
     -------
     dates : list[str]
         Dates of articles relevant to ticker as YYYY-MM-DD
-    
-    headlines : list[str]
+
+    titles : list[str]
         Titles of articles relevant to ticker
     """
     articles = data["articles"]
@@ -496,11 +501,88 @@ def get_articles(data: dict, query: str) -> tuple[list[str]]:
                 # Get YYYY-MM-DD for publish date
                 dates.append(article["publishedAt"][0:10])
                 titles.append(article["title"])
-        
-        except KeyError:
+
+        except (KeyError, AttributeError):
             continue
-    
+        
+        except Exception as e:
+            print(f"Error getting article: {e}")
+            continue
+
     return dates, titles
+
+
+# ===============================================================
+# Functions to run NLP model and process sentiment data
+# ===============================================================
+
+def get_nlp_predictions(article_data: zip) -> dict:
+    """
+    Loads pre-trained spaCy transformer model and produces
+    sentiment predictions for headline data
+
+    Parameters
+    ----------
+    article_data : zip
+        Zip of article dates and article headlines
+
+    Returns
+    -------
+    aggregate_sentiment : dict
+        Average sentiment of article headlines grouped by date
+    """
+    model_path = "./models/model-best-24"
+    # Load sentiment analysis model
+    nlp = spacy.load(model_path)
+
+    # Initialise dictionary for sentiment by date
+    sentiment_dict = {}
+
+    # Iterate through dates and headlines
+    for date, headline in list(article_data):
+        # Get sentiment predictions for headline
+        prediction = nlp(headline).cats
+        # Get difference between positive and negative probabilities
+        sentiment_spread = prediction["positive"] - prediction["negative"]
+        # Get current value list for date key if it exists, otherwise create empty list
+        date_sentiment = sentiment_dict.get(date, [])
+        # Append new prediction to list for that date
+        date_sentiment.append(sentiment_spread)
+        # Update dictionary values
+        sentiment_dict[date] = date_sentiment
+
+    # Create dict with average sentiment for each date present
+    aggregate_sentiment = {k: (sum(v)/len(v)) for k, v in sentiment_dict.items()}
+
+    return aggregate_sentiment
+
+
+def get_rolling_averages(sent_data: dict) -> pd.DataFrame:
+    """
+    Creates DataFrame of predicted sentiments organised with date
+    and rolling averages across time windows
+
+    Parameters
+    ----------
+    sent_data : dict | NOTE: output of get_nlp_predictions()
+        Average sentiment of article headlines grouped by date
+
+    Returns
+    -------
+    df : Pandas DataFrame
+        DataFrame with sentiment by date and rolling averages
+    """
+    # Set dates as index
+    df = pd.DataFrame.from_dict(sent_data, columns=["sentiment"], orient="index")
+    # Sort rows by date
+    df = df.sort_index()
+    # Set window size for rolling average
+    window = 7
+    # Add rolling average column
+    df["rolling_avg"] = df["sentiment"].rolling(window=window).mean()
+
+    return df
+
 
 # ===============================================================
 # Candlestick plot for selected ticker, period and interval
@@ -676,7 +758,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
     return tick, tick_history, tick_horizon, tick_earnings_dates, tick_name, tick_currency
     
 
-def handle_news(ticker_name: str):
+def handle_news(ticker_name: str) -> pd.DataFrame | None:
     """
     Handles function calls for one API call and resultant data processing
     Called by run_once()
@@ -685,27 +767,35 @@ def handle_news(ticker_name: str):
     ----------
     ticker_name : str | NOTE: output of get_short_name()
         Short name of ticker for new queries
-    
+
     Returns
     -------
-    pub_dates : list[str] | NOTE: output of get_articles()
-        List of dates for relevant articles
-    
-    pub_titles : list[str] | NOTE: output of get_articles()
-        List of titles for relevant articles
+    dataframe : pd.DataFrame | None if empty
+        DataFrame with sentiment by date and rolling averages
     """
     # Get news data based on ticker name
     news_data, query_name = get_news(ticker_name)
-
+    # Check whether news found
     if news_data != {} and query_name != "":
+
         # Get lists of relevant articles and publication dates
         pub_dates, pub_titles = get_articles(news_data, query_name)
-    
-    else:
-        # Return empty lists if no news data obtained
-        return [], []
+        # Check whether news contained relevant articles
+        if pub_dates != [] and pub_titles != []:
 
-    return pub_dates, pub_titles
+            # Zip article dates and titles
+            pub_data = zip(pub_dates, pub_titles)
+
+            # Get sentiment predictions by date
+            sentiment_data = get_nlp_predictions(pub_data)
+
+            # Get DataFrame with rolling averages
+            dataframe = get_rolling_averages(sentiment_data)
+
+            return dataframe
+
+    # Return None if no relevant news data obtained
+    return None
 
 
 def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str, 
@@ -755,7 +845,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
         try:
             # Get news headlines for ticker
-            article_dates, article_titles = handle_news(t_name)
+            sentiment_dataframe = handle_news(t_name)
         except Exception as e:
             print(f"Error getting news data: {e}")
 
@@ -775,7 +865,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 # ===============================================================
 
 # Valid ticker, period, and interval
-# run_once("AAPL", "6mo", "1d", True)
+run_once("AAPL", "6mo", "1d", True)
 # run_once("AAPL", "1y", "1d", True)
 # run_once("AZN.L", "6mo", "1d", True)
 

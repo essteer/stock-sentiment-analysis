@@ -1,0 +1,51 @@
+# STREAMLIT CHANGE
+    # fig.show()
+    st.plotly_chart(fig, use_container_width=False)
+
+
+# ===============================================================
+# Streamlit
+# ===============================================================
+
+st.title("Stock Price Analysis and Sentiment Visualization")
+st.subheader(
+    "Explore historical price data and general stock sentiment derived from news headlines in the last 30 days."
+    )
+
+# Create columns for input and dropdowns
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    ticker_input = st.text_input(label = "Ticker:", value = "NVDA", max_chars = None)
+
+with col2:
+    period_dd = st.selectbox(label = "Period:", options = ["Last 3 months", "Last 6 months", "Last 12 months"], index = 2)
+
+with col3: 
+    interval_dd = st.selectbox(label = "Interval:", options = ["1 day", "1 week"], index = 0)
+
+# Create columns for run button and process messages
+col4, col5, col6 = st.columns(3)
+
+with col4:
+    if st.button("Generate plot"):
+        sl_ticker = ticker_input
+        sl_period = "3mo" if period_dd == "Last 3 months" else "6mo" if period_dd == "Last 6 months" else "1y"
+        sl_interval = "1d" if interval_dd == "1 day" else "1wk"
+
+        with col5:
+            working_text = st.text("Generating plot...")
+
+        # Plot the graph
+        run_once(sl_ticker, sl_period, sl_interval, True)
+        
+        with col6:
+            st.success("Process complete!")  # Update UI after run_once finishes
+
+        # Remove text from column 5
+        with col5:
+            working_text.empty()
+
+        st.link_button("GitHub.com/essteer :arrow_right:", "https://github.com/ndkma")
+        st.link_button("GitHub.com/ndkma :arrow_right:", "https://github.com/ndkma")
+

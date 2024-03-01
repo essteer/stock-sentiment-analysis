@@ -2,7 +2,6 @@
 import os, random, requests, time, warnings
 import yfinance as yf
 import pandas as pd
-import plotly.express as px  # TODO remove this import if not used for sentiment plots
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
@@ -588,10 +587,14 @@ def get_rolling_averages(sent_data: dict) -> pd.DataFrame:
 # Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
-def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[],
+# ===============================================================
+# Candlestick plot for selected ticker, period and interval
+# ===============================================================
+
+def plot_candlestick(fig: go.Figure, ticker_code: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[],
                      name: str="", currency: str="Currency Undefined", period: str="3mo", interval: str="1d") -> None:
     """
-    Creates a candlestick graph for a specified stock, time period and interval.
+    Applies candlestick price data and trade volume data to a Plotly figure.
     Called by run_once()
 
     Parameters
@@ -601,75 +604,70 @@ def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earn
     Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"],
     "Microsoft Corporation", "USD", "1d")
     """
-    fig = go.Figure(
-        data=[go.Candlestick(x = history.index,
-                             open = history["Open"],
-                             high = history["High"],
-                             low = history["Low"],
-                             close = history["Close"],
-                             name = "Price Data"
-    )])
+    
+    # Add OHLC data to first subplot (Candlestick)
+    fig.update_traces(x=history.index, open=history["Open"], high=history["High"],
+                      low=history["Low"], close=history["Close"], hoverinfo="x+y", 
+                      selector={"name": "Candlestick"})
+    # Add trade volume data to second subplot (Volume)
+    fig.update_traces(x=history.index, y=history["Volume"], mode="lines", line_color=palette["sky"], 
+                      hovertemplate="%{x|%b %d, %Y}<br>%{y:,.0f}<extra></extra>",  # <extra> code removes trace name default
+                      selector={"name": "Volume"})
+
     start_date = history.index.min()
     end_date = history.index.max()
-
     # Get date range information for plot title
     start_date_string = start_date.strftime("%d %b. %Y")
-    end_date_string = end_date.strftime("%d %b. %Y")    # here b/c end_date reassigned to horizon below
+    end_date_string = end_date.strftime("%d %b. %Y")  # here b/c end_date reassigned to horizon below
     date_range_label = f"{start_date_string} - {end_date_string}"
 
     # Extend x-axis to horizon
     if horizon != "":
-        fig.update_layout(
-            xaxis_range=[history.index.min(), horizon]
-        )
+        fig.update_layout(xaxis_range=[history.index.min(), horizon])
         end_date = horizon
 
-    # Calculate total mean
-    mean_value = history["Close"].mean()
-    # Add horizontal dashed line for mean
-    fig.add_shape(
-        type = "line",
-        x0 = start_date, x1 = end_date,
-        y0 = mean_value, y1 = mean_value,
-        line = dict(color = palette["stone"], width = 2, dash = "dash"),
-        name = "Mean",
-        showlegend = True
-    )
+    # Calculate mean close price and mean trade volume
+    mean_price = history["Close"].mean()
+    mean_volume = history["Volume"].mean()
+    # Add horizontal dashed lines for mean values - declare only one on legend
+    fig.add_shape(type="line", x0=start_date, x1=end_date, y0=mean_price, y1=mean_price, 
+                  line=dict(color=palette["stone"], width=2, dash="dash"), name="Mean", showlegend=True, xref="x", yref="y1")
+    fig.add_shape(type="line", x0=start_date, x1=end_date, y0=mean_volume, y1=mean_volume,
+                  line=dict(color=palette["stone"], width=2, dash="dash"), name="Mean", xref="x", yref="y2")
+    
     # Get period to determine x-axis date display
     periods_dict = {"3mo": 7, "6mo": 7, "1y": 14}
     period_label = periods_dict[period.lower()]
-    
-    # Get interval label for plot title
+
+    # Hide dates on Candlestick (top) subplot x-axis
+    fig.update_xaxes(dtick=86400000*period_label, showticklabels=False, row=1, col=1)
+    fig.update_yaxes(title_text=f"Price ({currency})", row=1, col=1)
+    # Show dates on Volume (bottom) subplot x-axis
+    fig.update_xaxes(range=[history.index.min(), horizon], title_text="Date", title=dict(font=dict(color=palette["light"])), 
+                     tickfont=dict(color=palette["stone"]), gridcolor=palette["grey"], linecolor=palette["stone"],
+                     tickangle=45, dtick=86400000*period_label, tickformat="%Y-%m-%d", row=2, col=1)
+    fig.update_yaxes(title_text="Volume", title=dict(font=dict(color=palette["light"])), tickfont=dict(color=palette["stone"]),
+                     gridcolor=palette["grey"], linecolor=palette["stone"], row=2, col=1)
+
+    # Get interval label for figure title
     intervals_dict = {"1d": "Daily", "1wk": "Weekly"}
     interval_label = intervals_dict[interval.lower()]
 
-    # Combine name, ticker, and interval for plot title
+    # Combine name, ticker, and interval for figure title
     ticker_label = f"{name} ({ticker_code.upper()}) {interval_label}"
     # Update layout
-    fig.update_layout(
-        title = f"{ticker_label} Close Price <br>{date_range_label}",
-        xaxis_title = "Date",
-        xaxis = {"tickangle": 45, "dtick": 86400000*period_label, "tickformat": "%Y-%m-%d"},
-        xaxis_rangeslider_visible = False,
-        yaxis_title = f"Price ({currency})",
-        width=900,
-        height=400,
-    )
+    fig.update_layout(title_text=f"{ticker_label} Market Data <br>{date_range_label}", 
+                      xaxis_rangeslider_visible=False, width=1000, height=700)
+    
     # Add earnings dates as vertical lines
     if earnings_dates != []:
         reverse_earnings_dates = earnings_dates[::-1] # Reverse list so legend is chronological
         for date in reverse_earnings_dates:
             fig.add_shape(
-                type = "line",
-                x0=date, x1=date,
-                y0=0, y1=1, xref="x", yref="paper",
-                line = dict(color = palette["pink"], width = 2, dash = "dash"),
-                name = f"ED '{date[2:]}",
-                showlegend = True
+                type="line", x0=date, x1=date, y0=0, y1=1, xref="x", yref="paper",
+                line=dict(color = palette["pink"], width=1, dash="dash"),
+                name=f"ED '{date[2:]}", showlegend=True
                 )
-    # Show plot
-    format_plot(fig)
-    fig.show()
 
 
 # ===============================================================
@@ -798,27 +796,48 @@ def handle_news(ticker_name: str) -> pd.DataFrame | None:
     return None
 
 
-def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str, 
-                 tick_earnings_dates: list[str], tick_name: str, tick_currency: str="Currency Undefined", 
+def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str,
+                 tick_earnings_dates: list[str], tick_name: str, tick_currency: str="Currency Undefined",
                  raw_period: str="3mo", raw_interval: str="1d") -> None:
     """
-    Calls plot_candlestick() to plot price data
+    Calls plot_candlestick() to plot price and volume data
+    Calls handle_news() to obtain and process news data
+    Calls plot_sentiment() to add sentiment data trace
     Called by run_once()
 
     Parameters
     ----------
     See run_once() and handle_data() functions for parameter descriptions
     """
+    # Create subplots with two rows and one column
+    fig = make_subplots(rows=2, cols=1, vertical_spacing=0.075, row_heights=[0.6, 0.4])
+    # Add empty trace for candlestick data on top row
+    fig.add_trace(go.Candlestick(x=[], open=[], high=[], low=[], close=[], name="Candlestick"), row=1, col=1)
+    # Add placeholder for sentiment data on same plot as candlestick, but using right-hand y-axis
+    fig.add_trace(go.Scatter(x=[], y=[], name="Sentiment", yaxis="y2", line_color=palette["dark"], showlegend=False), 
+                  row=1, col=1)
+    # Add empty trace for volume data on bottom row
+    fig.add_trace(go.Scatter(x=[], y=[], name="Volume"), row=2, col=1)
+
     # Create candlestick plot
-    plot_candlestick(raw_tick, tick_history, tick_horizon, tick_earnings_dates,
+    plot_candlestick(fig, raw_tick, tick_history, tick_horizon, tick_earnings_dates,
                          tick_name, tick_currency, raw_period, raw_interval)
+    
+    # Show plot
+    format_plot(fig)
+    fig.show()
+
+    # try:
+    #     # Get news headlines for ticker
+    #     sentiment_dataframe = handle_news(tick_name)
+    # except Exception as e:
+    #     print(f"Error getting news data: {e}")
 
 
 def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", show_plots=False) -> None:
     """
     Master function:
         Calls handle_data() to obtain and process data
-        Calls handle_news() to obtain and process news data
         Calls handle_plots() to generate plots
 
     Parameters
@@ -843,12 +862,6 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
         # Retain t_obj (Ticker object) for further use
         t_obj, t_hist, t_horizon, t_earn_dates, t_name, t_curr =  handle_data(raw_ticker, raw_period, raw_interval)
 
-        try:
-            # Get news headlines for ticker
-            sentiment_dataframe = handle_news(t_name)
-        except Exception as e:
-            print(f"Error getting news data: {e}")
-
         if show_plots == True:
             try:
                 # Send raw_ticker to pass the string for plotting, not the Ticker object
@@ -865,8 +878,8 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 # ===============================================================
 
 # Valid ticker, period, and interval
-run_once("AAPL", "6mo", "1d", True)
-# run_once("AAPL", "1y", "1d", True)
+# run_once("AAPL", "6mo", "1d", True)
+# run_once("MSFT", "1y", "1wk", True)
 # run_once("AZN.L", "6mo", "1d", True)
 
 # ===============================================================

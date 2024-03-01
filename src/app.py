@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 import os, random, requests, time, warnings
 import yfinance as yf
+import numpy as np
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from dotenv import load_dotenv
+import spacy
+import spacy_transformers  # required for transformer model
 import streamlit as st
-import threading
-
 # """
 # Suppress Pandas future warning: 
 # FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
@@ -158,7 +158,7 @@ def format_plot(fig) -> None:
         margin=dict(l=80, r=20, t=40, b=20),
     )
     fig.update_yaxes(
-        title_standoff = 5
+        title_standoff=5
     )
 
 
@@ -224,7 +224,7 @@ def validate_interval(interval: str) -> bool:
 # Functions to call and process yfinance API data
 # ===============================================================
 
-def get_ticker(ticker: str, current_session: requests.Session) -> yf.Ticker:
+def get_ticker(ticker: str, current_session: requests.Session) -> yf.Ticker | str:
     """
     Gets ticker data via call to yfinance API
     Called by handle_data()
@@ -286,7 +286,7 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
     valid_interval = str.lower(interval)
     # Pull stock price dataframe, adjusted for corporate actions (stock splits, dividends)
     try:
-        history = ticker.history(period = valid_period, interval = valid_interval, auto_adjust = True)
+        history = ticker.history(period=valid_period, interval=valid_interval, auto_adjust=True)
     except Exception as e:
         return f"Error retrieving price history: {e}" 
     
@@ -415,6 +415,9 @@ def get_news(short_name: str) -> tuple[dict, str]:
     -------
     data : dict
         Dictionary of JSON response from News API call
+    
+    name_list[0] : str
+        First term of search query used
     """
     # Prepare name for search query
     name = short_name[:].lower()
@@ -453,7 +456,7 @@ def get_news(short_name: str) -> tuple[dict, str]:
         except KeyError:
             time.sleep(1)
             continue
-        
+
         except Exception as e:
             print(f"Error getting news: {e}")
             time.sleep(1)
@@ -471,16 +474,16 @@ def get_articles(data: dict, query: str) -> tuple[list[str]]:
     ----------
     data : dict | NOTE: output of get_news()
         Dictionary of JSON response from News API call
-    
+
     query : str | NOTE: output of get_news()
         First word of ticker name as used for news query
-    
+
     Returns
     -------
     dates : list[str]
         Dates of articles relevant to ticker as YYYY-MM-DD
-    
-    headlines : list[str]
+
+    titles : list[str]
         Titles of articles relevant to ticker
     """
     articles = data["articles"]
@@ -499,21 +502,98 @@ def get_articles(data: dict, query: str) -> tuple[list[str]]:
                 # Get YYYY-MM-DD for publish date
                 dates.append(article["publishedAt"][0:10])
                 titles.append(article["title"])
-        
-        except KeyError:
+
+        except (KeyError, AttributeError):
             continue
-    
+        
+        except Exception as e:
+            print(f"Error getting article: {e}")
+            continue
+
     return dates, titles
+
+
+# ===============================================================
+# Functions to run NLP model and process sentiment data
+# ===============================================================
+
+def get_nlp_predictions(article_data: zip) -> dict:
+    """
+    Loads pre-trained spaCy transformer model and produces
+    sentiment predictions for headline data
+
+    Parameters
+    ----------
+    article_data : zip
+        Zip of article dates and article headlines
+
+    Returns
+    -------
+    aggregate_sentiment : dict
+        Average sentiment of article headlines grouped by date
+    """
+    model_path = "./models/model-best-24"
+    # Load sentiment analysis model
+    nlp = spacy.load(model_path)
+
+    # Initialise dictionary for sentiment by date
+    sentiment_dict = {}
+
+    # Iterate through dates and headlines
+    for date, headline in list(article_data):
+        # Get sentiment predictions for headline
+        prediction = nlp(headline).cats
+        # Get difference between positive and negative probabilities
+        sentiment_spread = prediction["positive"] - prediction["negative"]
+        # Get current value list for date key if it exists, otherwise create empty list
+        date_sentiment = sentiment_dict.get(date, [])
+        # Append new prediction to list for that date
+        date_sentiment.append(sentiment_spread)
+        # Update dictionary values
+        sentiment_dict[date] = date_sentiment
+
+    # Create dict with average sentiment for each date present
+    aggregate_sentiment = {k: (sum(v)/len(v)) for k, v in sentiment_dict.items()}
+
+    return aggregate_sentiment
+
+
+def get_rolling_averages(sent_data: dict) -> pd.DataFrame:
+    """
+    Creates DataFrame of predicted sentiments organised with date
+    and rolling averages across time windows
+
+    Parameters
+    ----------
+    sent_data : dict | NOTE: output of get_nlp_predictions()
+        Average sentiment of article headlines grouped by date
+
+    Returns
+    -------
+    df : Pandas DataFrame
+        DataFrame with sentiment by date and rolling averages
+    """
+    # Set dates as index
+    df = pd.DataFrame.from_dict(sent_data, columns=["sentiment"], orient="index")
+    # Sort rows by date
+    df = df.sort_index()
+    # Set window size for rolling average
+    window = 7
+    # Add rolling average column
+    df["rolling_avg"] = df["sentiment"].rolling(window=window).mean()
+
+    return df
+
 
 # ===============================================================
 # Candlestick plot for selected ticker, period and interval
 # ===============================================================
 
-def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[],
+def plot_candlestick(fig: go.Figure, ticker_code: str, history: pd.DataFrame, horizon: str, earnings_dates: list=[],
                      name: str="", currency: str="Currency Undefined", period: str="3mo", interval: str="1d") -> None:
     """
-    Creates a candlestick graph for a specified stock, time period and interval.
-    Called by run_once()
+    Applies candlestick price data and trade volume data to a Plotly figure.
+    Called by handle_plots()
 
     Parameters
     ----------
@@ -522,80 +602,106 @@ def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earn
     Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"],
     "Microsoft Corporation", "USD", "1d")
     """
-    fig = go.Figure(
-        data=[go.Candlestick(x = history.index,
-                             open = history["Open"],
-                             high = history["High"],
-                             low = history["Low"],
-                             close = history["Close"],
-                             name = "Price Data"
-    )])
+    # Add OHLC data to first subplot (Prices)
+    fig.update_traces(x=history.index, open=history["Open"], high=history["High"],
+                      low=history["Low"], close=history["Close"], hoverinfo="x+y",
+                      selector={"name": "Prices"})
+    # Add trade volume data to second subplot (Volume)
+    fig.update_traces(x=history.index, y=history["Volume"], mode="lines", line_color=palette["sky"],
+                      hovertemplate="%{x|%b %d, %Y}<br>%{y:,.0f}<extra></extra>",  # <extra> code removes trace name default
+                      selector={"name": "Volume"})
+
     start_date = history.index.min()
     end_date = history.index.max()
-
     # Get date range information for plot title
     start_date_string = start_date.strftime("%d %b. %Y")
-    end_date_string = end_date.strftime("%d %b. %Y")    # here b/c end_date reassigned to horizon below
+    end_date_string = end_date.strftime("%d %b. %Y")  # here b/c end_date reassigned to horizon below
     date_range_label = f"{start_date_string} - {end_date_string}"
 
     # Extend x-axis to horizon
     if horizon != "":
-        fig.update_layout(
-            xaxis_range=[history.index.min(), horizon]
-        )
+        fig.update_layout(xaxis_range=[history.index.min(), horizon])
         end_date = horizon
 
-    # Calculate total mean
-    mean_value = history["Close"].mean()
-    # Add horizontal dashed line for mean
-    fig.add_shape(
-        type = "line",
-        x0 = start_date, x1 = end_date,
-        y0 = mean_value, y1 = mean_value,
-        line = dict(color = palette["stone"], width = 2, dash = "dash"),
-        name = "Mean",
-        showlegend = True
-    )
+    # Calculate mean close price and mean trade volume
+    mean_price = history["Close"].mean()
+    mean_volume = history["Volume"].mean()
+    # Add horizontal dashed lines for mean values - declare only one on legend
+    fig.add_shape(type="line", x0=start_date, x1=end_date, y0=mean_price, y1=mean_price,
+                  line=dict(color=palette["stone"], width=2, dash="dash"), name="Mean", showlegend=True, row=1, col=1)
+    fig.add_shape(type="line", x0=start_date, x1=end_date, y0=mean_volume, y1=mean_volume,
+                  line=dict(color=palette["stone"], width=2, dash="dash"), name="Mean", row=2, col=1)
+
     # Get period to determine x-axis date display
     periods_dict = {"3mo": 7, "6mo": 7, "1y": 14}
     period_label = periods_dict[period.lower()]
-    
-    # Get interval label for plot title
+
+    # Hide dates on Prices (top) subplot x-axis
+    fig.update_xaxes(dtick=86400000*period_label, showticklabels=False, row=1, col=1)
+    fig.update_yaxes(title_text=f"Price ({currency})", row=1, col=1)
+    # Show dates on Volume (bottom) subplot x-axis
+    fig.update_xaxes(range=[history.index.min(), horizon], title_text="Date", title=dict(font=dict(color=palette["light"])),
+                     tickfont=dict(color=palette["stone"]), gridcolor=palette["grey"], linecolor=palette["stone"],
+                     tickangle=45, dtick=86400000*period_label, tickformat="%Y-%m-%d", row=2, col=1)
+    fig.update_yaxes(title_text="Volume", title=dict(font=dict(color=palette["light"])), tickfont=dict(color=palette["stone"]),
+                     gridcolor=palette["grey"], linecolor=palette["stone"], row=2, col=1)
+
+    # Get interval label for figure title
     intervals_dict = {"1d": "Daily", "1wk": "Weekly"}
     interval_label = intervals_dict[interval.lower()]
 
-    # Combine name, ticker, and interval for plot title
+    # Combine name, ticker, and interval for figure title
     ticker_label = f"{name} ({ticker_code.upper()}) {interval_label}"
     # Update layout
-    fig.update_layout(
-        title = f"{ticker_label} Close Price <br>{date_range_label}",
-        xaxis_title = "Date",
-        xaxis = {"tickangle": 45, "dtick": 86400000*period_label, "tickformat": "%Y-%m-%d"},
-        xaxis_rangeslider_visible = False,
-        yaxis_title = f"Price ({currency})",
-        width=705,
-        height=405,
-    )
+    fig.update_layout(title_text=f"{ticker_label} Market Data <br>{date_range_label}",
+                      xaxis_rangeslider_visible=False, width=705, height=600)
 
     # Add earnings dates as vertical lines
     if earnings_dates != []:
         reverse_earnings_dates = earnings_dates[::-1] # Reverse list so legend is chronological
         for date in reverse_earnings_dates:
             fig.add_shape(
-                type = "line",
-                x0=date, x1=date,
-                y0=0, y1=1, xref="x", yref="paper",
-                line = dict(color = palette["pink"], width = 2, dash = "dash"),
-                name = f"ED '{date[2:]}",
-                showlegend = True
+                type="line", x0=date, x1=date, y0=0, y1=1, xref="x", yref="paper",
+                line=dict(color = palette["pink"], width=1, dash="dash"),
+                name=f"ED '{date[2:]}", showlegend=True
                 )
-    # Show plot
-    format_plot(fig)
 
-# STREAMLIT CHANGE
-    # fig.show()
-    st.plotly_chart(fig, use_container_width=False)
+
+# ===============================================================
+# Sentiment data plot trace
+# ===============================================================
+
+def plot_sentiment(sent_df: pd.DataFrame, fig: go.Figure) -> None:
+    """
+    Applies market sentiment data to a Plotly figure.
+    Called by handle_plots()
+
+    Parameters
+    ----------
+    See run_once() and handle_data() functions for parameter descriptions
+
+    Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"],
+    "Microsoft Corporation", "USD", "1d")
+    """
+    max_value = np.nanmax(sent_df["rolling_avg"])
+    min_value = np.nanmin(sent_df["rolling_avg"])
+    # Calculate upper and lower bounds
+    upper_bound = min([1.0, max_value + 0.2])
+    lower_bound = max([-1.0, min_value - 0.2])
     
+    fig.update_traces(
+        x=sent_df.index, y=sent_df["rolling_avg"], mode="lines+markers", line_color=palette["yellow"], 
+        marker=dict(symbol="arrow", size=10, angleref="previous"),
+        hovertemplate="%{x|%b %d, %Y}<br>sentiment (1wk avg): %{y:,.2f}<extra></extra>",  # <extra> code removes trace name default
+        showlegend=True, selector={"name": "Sentiment"}
+    )
+    fig.update_yaxes(
+        title_text="", tickfont=dict(color=palette["stone"]), 
+        tickmode="array", 
+        range=[lower_bound, upper_bound], 
+        zeroline=False, showgrid=False, row=1, col=1, secondary_y=True
+    )
+
 
 # ===============================================================
 # Handler functions
@@ -683,7 +789,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
     return tick, tick_history, tick_horizon, tick_earnings_dates, tick_name, tick_currency
     
 
-def handle_news(ticker_name: str):
+def handle_news(ticker_name: str) -> pd.DataFrame | None:
     """
     Handles function calls for one API call and resultant data processing
     Called by run_once()
@@ -692,43 +798,71 @@ def handle_news(ticker_name: str):
     ----------
     ticker_name : str | NOTE: output of get_short_name()
         Short name of ticker for new queries
-    
+
     Returns
     -------
-    pub_dates : list[str] | NOTE: output of get_articles()
-        List of dates for relevant articles
-    
-    pub_titles : list[str] | NOTE: output of get_articles()
-        List of titles for relevant articles
+    dataframe : pd.DataFrame | None if empty
+        DataFrame with sentiment by date and rolling averages
     """
     # Get news data based on ticker name
     news_data, query_name = get_news(ticker_name)
-
+    # Check whether news found
     if news_data != {} and query_name != "":
+
         # Get lists of relevant articles and publication dates
         pub_dates, pub_titles = get_articles(news_data, query_name)
-    
-    else:
-        # Return empty lists if no news data obtained
-        return [], []
+        # Check whether news contained relevant articles
+        if pub_dates != [] and pub_titles != []:
 
-    return pub_dates, pub_titles
+            # Zip article dates and titles
+            pub_data = zip(pub_dates, pub_titles)
+
+            # Get sentiment predictions by date
+            sentiment_data = get_nlp_predictions(pub_data)
+
+            # Get DataFrame with rolling averages
+            dataframe = get_rolling_averages(sentiment_data)
+
+            return dataframe
+
+    # Return None if no relevant news data obtained
+    return None
 
 
-def handle_plots(raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str, 
-                 tick_earnings_dates: list[str], tick_name: str, tick_currency: str="Currency Undefined", 
+def handle_plots(sent_df: pd.DataFrame | None, raw_tick: str, tick_history: pd.DataFrame, tick_horizon: str,
+                 tick_earnings_dates: list[str], tick_name: str, tick_currency: str="Currency Undefined",
                  raw_period: str="3mo", raw_interval: str="1d") -> None:
     """
-    Calls plot_candlestick() to plot price data
+    Calls plot_candlestick() to plot price and volume data
+    Calls plot_sentiment() to add market sentiment data to candlestick plot
     Called by run_once()
 
     Parameters
     ----------
-    See run_once() and handle_data() functions for parameter descriptions
+    See run_once(), handle_data(), handle_news() docstrings for parameter descriptions
     """
-    # Create candlestick plot
-    plot_candlestick(raw_tick, tick_history, tick_horizon, tick_earnings_dates,
+    # Create subplots with two rows and one column
+    fig = make_subplots(rows=2, cols=1, vertical_spacing=0.035, row_heights=[0.6, 0.4], specs=[[{"secondary_y": True}], [{}]])
+    # Add empty trace for candlestick data on top row
+    fig.add_trace(go.Candlestick(x=[], open=[], high=[], low=[], close=[], name="Prices"), row=1, col=1)
+    # Add placeholder for sentiment data on same plot as candlestick, but using right-hand y-axis
+    fig.add_trace(go.Scatter(x=[], y=[], name="Sentiment", line_color=palette["dark"], showlegend=False), row=1, col=1, secondary_y=True)
+    # Add empty trace for volume data on bottom row
+    fig.add_trace(go.Scatter(x=[], y=[], name="Volume"), row=2, col=1)
+
+    # Add candlestick and volume plots
+    plot_candlestick(fig, raw_tick, tick_history, tick_horizon, tick_earnings_dates,
                          tick_name, tick_currency, raw_period, raw_interval)
+    # Add market sentiment plot
+    if isinstance(sent_df, pd.DataFrame):
+        plot_sentiment(sent_df, fig)
+
+    # Show plot
+    format_plot(fig)
+
+    # STREAMLIT CHANGE
+    # fig.show()
+    st.plotly_chart(fig, use_container_width=False)
 
 
 def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", show_plots=False) -> None:
@@ -761,15 +895,16 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
         t_obj, t_hist, t_horizon, t_earn_dates, t_name, t_curr =  handle_data(raw_ticker, raw_period, raw_interval)
 
         try:
-            # Get news headlines for ticker
-            article_dates, article_titles = handle_news(t_name)
+            # Get news headline sentiment data for ticker
+            sentiment_df = handle_news(t_name)
         except Exception as e:
-            print(f"Error getting news data: {e}")
+            print(f"Error getting market sentiment data: {e}")
+            sentiment_df = None
 
         if show_plots == True:
             try:
                 # Send raw_ticker to pass the string for plotting, not the Ticker object
-                handle_plots(raw_ticker, t_hist, t_horizon, t_earn_dates, t_name, t_curr, raw_period, raw_interval)
+                handle_plots(sentiment_df, raw_ticker, t_hist, t_horizon, t_earn_dates, t_name, t_curr, raw_period, raw_interval)
             except Exception as e:
                 print(f"Error during plot handling: {e}")
 
@@ -781,7 +916,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 # Streamlit
 # ===============================================================
 
-st.title("Stock Price Analysis and Sentiment Visualization")
+st.title("Stock Price and Market Sentiment Analysis")
 st.subheader(
     "Explore historical price data and general stock sentiment derived from news headlines in the last 30 days."
     )
@@ -825,16 +960,13 @@ with col4:
 
 
 
-
-
-
 # ===============================================================
 # Tests - with plots
 # ===============================================================
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d", True)
-# run_once("AAPL", "1y", "1d", True)
+# run_once("MSFT", "1y", "1wk", True)
 # run_once("AZN.L", "6mo", "1d", True)
 
 # ===============================================================

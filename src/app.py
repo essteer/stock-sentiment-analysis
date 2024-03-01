@@ -576,6 +576,7 @@ def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earn
         width=705,
         height=405,
     )
+
     # Add earnings dates as vertical lines
     if earnings_dates != []:
         reverse_earnings_dates = earnings_dates[::-1] # Reverse list so legend is chronological
@@ -594,6 +595,7 @@ def plot_candlestick(ticker_code: str, history: pd.DataFrame, horizon: str, earn
 # STREAMLIT CHANGE
     # fig.show()
     st.plotly_chart(fig, use_container_width=False)
+    
 
 # ===============================================================
 # Handler functions
@@ -779,9 +781,9 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 # Streamlit
 # ===============================================================
 
-st.title("Stock Sentiment Analysis")
+st.title("Stock Price Analysis and Sentiment Visualization")
 st.subheader(
-    "This application displays historical price data and general stock sentiment which is based on news headlines over the last 30 days."
+    "Explore historical price data and general stock sentiment derived from news headlines in the last 30 days."
     )
 
 # Create columns for input and dropdowns
@@ -810,13 +812,21 @@ with col4:
 
         # Plot the graph
         run_once(sl_ticker, sl_period, sl_interval, True)
-
+        
         with col6:
             st.success("Process complete!")  # Update UI after run_once finishes
 
         # Remove text from column 5
         with col5:
             working_text.empty()
+
+        st.link_button("GitHub.com/essteer :arrow_right:", "https://github.com/ndkma")
+        st.link_button("GitHub.com/ndkma :arrow_right:", "https://github.com/ndkma")
+
+
+
+
+
 
 # ===============================================================
 # Tests - with plots

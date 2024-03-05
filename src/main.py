@@ -154,7 +154,8 @@ def format_plot(fig) -> None:
             "ticks": "outside", "tickcolor": palette["dark"], "ticklen": 5,
         },
         legend_font_color=palette["stone"],
-        margin=dict(l=80, r=20, t=40, b=20),
+        legend=dict(x=0.99),
+        margin=dict(l=80, r=20, t=60, b=20)
     )
     fig.update_yaxes(
         title_standoff=5
@@ -333,7 +334,7 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
 
     history : pd.DataFrame | NOTE: output of get_history()
         Price history for chosen ticker
-        
+
     new_horizon : str | NOTE: output of get_horizon()
         Today's date + horizon_months as "YYYY-MM-DD"
 
@@ -342,17 +343,25 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
     valid_earnings : list[str]
         List of earnings dates within range
     """
-    # Extract earnings dates from Ticker object
-    earnings_dates = ticker.earnings_dates.index
-    # Extract YYYY-MM-DD from earnings dates as strings
-    earnings_dates = [date.strftime("%Y-%m-%d") for date in earnings_dates]
-    # Get date range from ticker_history
-    history_dates = history.index
-    # Get start date
-    history_min = list(history_dates)[0].strftime("%Y-%m-%d")
-    # Get list of earnings dates within history_min_max range + 3 months
-    valid_earnings = [x for x in earnings_dates if x >= history_min and x <= horizon]
+    try:
+        if ticker.earnings_dates is None:
+            valid_earnings = []
+        else:
+            # Extract earnings dates from Ticker object
+            earnings_dates = ticker.earnings_dates.index
+            # Extract YYYY-MM-DD from earnings dates as strings
+            earnings_dates = [date.strftime("%Y-%m-%d") for date in earnings_dates]
+            # Get date range from ticker_history
+            history_dates = history.index
+            # Get start date
+            history_min = list(history_dates)[0].strftime("%Y-%m-%d")
+            # Get list of earnings dates within history_min_max range + 3 months
+            valid_earnings = [x for x in earnings_dates if x >= history_min and x <= horizon]
     
+    except AttributeError:
+        # Ticker.earnings_dates non-existant for e.g. indices, currencies
+        valid_earnings = []
+
     return valid_earnings
 
 
@@ -534,10 +543,8 @@ def get_nlp_predictions(article_data: zip) -> dict:
     model_path = "./models/model-best-24"
     # Load sentiment analysis model
     nlp = spacy.load(model_path)
-
     # Initialise dictionary for sentiment by date
     sentiment_dict = {}
-
     # Iterate through dates and headlines
     for date, headline in list(article_data):
         # Get sentiment predictions for headline
@@ -550,7 +557,6 @@ def get_nlp_predictions(article_data: zip) -> dict:
         date_sentiment.append(sentiment_spread)
         # Update dictionary values
         sentiment_dict[date] = date_sentiment
-
     # Create dict with average sentiment for each date present
     aggregate_sentiment = {k: (sum(v)/len(v)) for k, v in sentiment_dict.items()}
 
@@ -639,8 +645,8 @@ def plot_candlestick(fig: go.Figure, ticker_code: str, history: pd.DataFrame, ho
     fig.update_xaxes(dtick=86400000*period_label, showticklabels=False, row=1, col=1)
     fig.update_yaxes(title_text=f"Price ({currency})", row=1, col=1)
     # Show dates on Volume (bottom) subplot x-axis
-    fig.update_xaxes(range=[history.index.min(), horizon], title_text="Date", title=dict(font=dict(color=palette["light"])),
-                     tickfont=dict(color=palette["stone"]), gridcolor=palette["grey"], linecolor=palette["stone"],
+    fig.update_xaxes(range=[history.index.min(), horizon], tickfont=dict(color=palette["stone"]), 
+                     gridcolor=palette["grey"], linecolor=palette["stone"],
                      tickangle=45, dtick=86400000*period_label, tickformat="%Y-%m-%d", row=2, col=1)
     fig.update_yaxes(title_text="Volume", title=dict(font=dict(color=palette["light"])), tickfont=dict(color=palette["stone"]),
                      gridcolor=palette["grey"], linecolor=palette["stone"], row=2, col=1)
@@ -682,12 +688,18 @@ def plot_sentiment(sent_df: pd.DataFrame, fig: go.Figure) -> None:
     Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"],
     "Microsoft Corporation", "USD", "1d")
     """
-    max_value = np.nanmax(sent_df["rolling_avg"])
-    min_value = np.nanmin(sent_df["rolling_avg"])
-    # Calculate upper and lower bounds
-    upper_bound = min([1.0, max_value + 0.2])
-    lower_bound = max([-1.0, min_value - 0.2])
+    if not sent_df["rolling_avg"].isna().all():
     
+        max_value = np.nanmax(sent_df["rolling_avg"])
+        min_value = np.nanmin(sent_df["rolling_avg"])
+        # Calculate upper and lower bounds
+        upper_bound = min([1.0, max_value + 0.2])
+        lower_bound = max([-1.0, min_value - 0.2])
+        
+    else:
+        upper_bound = 1.0
+        lower_bound = -1.0
+        
     fig.update_traces(
         x=sent_df.index, y=sent_df["rolling_avg"], mode="lines+markers", line_color=palette["yellow"], 
         marker=dict(symbol="arrow", size=10, angleref="previous"),
@@ -914,6 +926,9 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d", True)
+# run_once("SPY", "6mo", "1d", True)
+# run_once("BTC-USD", "6mo", "1d", True)
+# run_once("TBCG.L", "6mo", "1d", True)
 # run_once("MSFT", "1y", "1wk", True)
 # run_once("AZN.L", "6mo", "1d", True)
 

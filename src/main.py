@@ -154,7 +154,8 @@ def format_plot(fig) -> None:
             "ticks": "outside", "tickcolor": palette["dark"], "ticklen": 5,
         },
         legend_font_color=palette["stone"],
-        margin=dict(l=80, r=20, t=40, b=20),
+        legend=dict(x=0.99),
+        margin=dict(l=80, r=20, t=60, b=20)
     )
     fig.update_yaxes(
         title_standoff=5
@@ -344,7 +345,7 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
     """
     try:
         if ticker.earnings_dates is None:
-            valid_earnings = [""]
+            valid_earnings = []
         else:
             # Extract earnings dates from Ticker object
             earnings_dates = ticker.earnings_dates.index
@@ -359,7 +360,7 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
     
     except AttributeError:
         # Ticker.earnings_dates non-existant for e.g. indices, currencies
-        valid_earnings = [""]
+        valid_earnings = []
 
     return valid_earnings
 
@@ -647,8 +648,8 @@ def plot_candlestick(fig: go.Figure, ticker_code: str, history: pd.DataFrame, ho
     fig.update_xaxes(dtick=86400000*period_label, showticklabels=False, row=1, col=1)
     fig.update_yaxes(title_text=f"Price ({currency})", row=1, col=1)
     # Show dates on Volume (bottom) subplot x-axis
-    fig.update_xaxes(range=[history.index.min(), horizon], title_text="Date", title=dict(font=dict(color=palette["light"])),
-                     tickfont=dict(color=palette["stone"]), gridcolor=palette["grey"], linecolor=palette["stone"],
+    fig.update_xaxes(range=[history.index.min(), horizon], tickfont=dict(color=palette["stone"]), 
+                     gridcolor=palette["grey"], linecolor=palette["stone"],
                      tickangle=45, dtick=86400000*period_label, tickformat="%Y-%m-%d", row=2, col=1)
     fig.update_yaxes(title_text="Volume", title=dict(font=dict(color=palette["light"])), tickfont=dict(color=palette["stone"]),
                      gridcolor=palette["grey"], linecolor=palette["stone"], row=2, col=1)
@@ -779,7 +780,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
         tick_earnings_dates = get_earnings_dates(tick, tick_history, tick_horizon)
     except Exception as e:
         print(f"Error retrieving earnings dates: {e}")
-        tick_earnings_dates = [""]
+        tick_earnings_dates = []
     
     try:  # Retrieve short name of Ticker object
         tick_name = get_short_name(tick)

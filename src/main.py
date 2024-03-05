@@ -543,10 +543,8 @@ def get_nlp_predictions(article_data: zip) -> dict:
     model_path = "./models/model-best-24"
     # Load sentiment analysis model
     nlp = spacy.load(model_path)
-
     # Initialise dictionary for sentiment by date
     sentiment_dict = {}
-
     # Iterate through dates and headlines
     for date, headline in list(article_data):
         # Get sentiment predictions for headline
@@ -559,7 +557,6 @@ def get_nlp_predictions(article_data: zip) -> dict:
         date_sentiment.append(sentiment_spread)
         # Update dictionary values
         sentiment_dict[date] = date_sentiment
-
     # Create dict with average sentiment for each date present
     aggregate_sentiment = {k: (sum(v)/len(v)) for k, v in sentiment_dict.items()}
 
@@ -691,12 +688,18 @@ def plot_sentiment(sent_df: pd.DataFrame, fig: go.Figure) -> None:
     Complete example : plot_candlestick("MSFT", <pd.DataFrame>, "YYYY-MM-DD", ["YYYY-DD-MM", "YYYY-DD-MM"],
     "Microsoft Corporation", "USD", "1d")
     """
-    max_value = np.nanmax(sent_df["rolling_avg"])
-    min_value = np.nanmin(sent_df["rolling_avg"])
-    # Calculate upper and lower bounds
-    upper_bound = min([1.0, max_value + 0.2])
-    lower_bound = max([-1.0, min_value - 0.2])
+    if not sent_df["rolling_avg"].isna().all():
     
+        max_value = np.nanmax(sent_df["rolling_avg"])
+        min_value = np.nanmin(sent_df["rolling_avg"])
+        # Calculate upper and lower bounds
+        upper_bound = min([1.0, max_value + 0.2])
+        lower_bound = max([-1.0, min_value - 0.2])
+        
+    else:
+        upper_bound = 1.0
+        lower_bound = -1.0
+        
     fig.update_traces(
         x=sent_df.index, y=sent_df["rolling_avg"], mode="lines+markers", line_color=palette["yellow"], 
         marker=dict(symbol="arrow", size=10, angleref="previous"),
@@ -924,7 +927,8 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d", True)
 # run_once("SPY", "6mo", "1d", True)
-run_once("BTC-USD", "6mo", "1d", True)
+# run_once("BTC-USD", "6mo", "1d", True)
+# run_once("TBCG.L", "6mo", "1d", True)
 # run_once("MSFT", "1y", "1wk", True)
 # run_once("AZN.L", "6mo", "1d", True)
 

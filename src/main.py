@@ -333,7 +333,7 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
 
     history : pd.DataFrame | NOTE: output of get_history()
         Price history for chosen ticker
-        
+
     new_horizon : str | NOTE: output of get_horizon()
         Today's date + horizon_months as "YYYY-MM-DD"
 
@@ -342,17 +342,25 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
     valid_earnings : list[str]
         List of earnings dates within range
     """
-    # Extract earnings dates from Ticker object
-    earnings_dates = ticker.earnings_dates.index
-    # Extract YYYY-MM-DD from earnings dates as strings
-    earnings_dates = [date.strftime("%Y-%m-%d") for date in earnings_dates]
-    # Get date range from ticker_history
-    history_dates = history.index
-    # Get start date
-    history_min = list(history_dates)[0].strftime("%Y-%m-%d")
-    # Get list of earnings dates within history_min_max range + 3 months
-    valid_earnings = [x for x in earnings_dates if x >= history_min and x <= horizon]
+    try:
+        if ticker.earnings_dates is None:
+            valid_earnings = [""]
+        else:
+            # Extract earnings dates from Ticker object
+            earnings_dates = ticker.earnings_dates.index
+            # Extract YYYY-MM-DD from earnings dates as strings
+            earnings_dates = [date.strftime("%Y-%m-%d") for date in earnings_dates]
+            # Get date range from ticker_history
+            history_dates = history.index
+            # Get start date
+            history_min = list(history_dates)[0].strftime("%Y-%m-%d")
+            # Get list of earnings dates within history_min_max range + 3 months
+            valid_earnings = [x for x in earnings_dates if x >= history_min and x <= horizon]
     
+    except AttributeError:
+        # Ticker.earnings_dates non-existant for e.g. indices, currencies
+        valid_earnings = [""]
+
     return valid_earnings
 
 
@@ -771,7 +779,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
         tick_earnings_dates = get_earnings_dates(tick, tick_history, tick_horizon)
     except Exception as e:
         print(f"Error retrieving earnings dates: {e}")
-        tick_earnings_dates = []
+        tick_earnings_dates = [""]
     
     try:  # Retrieve short name of Ticker object
         tick_name = get_short_name(tick)
@@ -914,6 +922,8 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d", True)
+# run_once("SPY", "6mo", "1d", True)
+run_once("BTC-USD", "6mo", "1d", True)
 # run_once("MSFT", "1y", "1wk", True)
 # run_once("AZN.L", "6mo", "1d", True)
 

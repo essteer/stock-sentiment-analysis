@@ -946,6 +946,7 @@ with col3:
 
 # Create columns for run button and process messages
 col4, col5, col6 = st.columns(3)
+col7, col8, col9 = st.columns(3)
 
 with col4:
     if st.button("Generate plot"):
@@ -963,8 +964,11 @@ with col4:
         with col5:
             working_text.empty()
 
-        st.link_button("GitHub.com/essteer :arrow_right:", "https://github.com/essteer")
-        st.link_button("GitHub.com/ndkma :arrow_right:", "https://github.com/ndkma")
+        with col7:
+            st.link_button("GitHub.com/essteer :arrow_right:", "https://github.com/essteer")
+
+        with col8:    
+            st.link_button("GitHub.com/ndkma :arrow_right:", "https://github.com/ndkma")
 
 # ===============================================================
 # Tests - with plots

@@ -9,12 +9,7 @@ from dotenv import load_dotenv
 import spacy
 import spacy_transformers  # required for transformer model
 import streamlit as st
-# """
-# Suppress Pandas future warning: 
-# FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
-# and will be removed in a future version. Use pd.to_timedelta instead.
-# df.index += _pd.TimedeltaIndex(dst_error_hours, 'h')
-# """
+
 warnings.filterwarnings("ignore", category=FutureWarning, module="yfinance")
 # Load dotenv environment
 load_dotenv()
@@ -442,8 +437,8 @@ def get_news(short_name: str) -> tuple[dict, str]:
     # NOTE: max URL length = 500 characters
     base_url = "https://newsapi.org/v2/everything?"
     # Break domains in half for easier code review
-    domains_1 = "aljazeera.com,bbc.com,businessinsider.com,cnn.com,forbes.com,indiatimes.com,"
-    domains_2 = "investing.com,marketwatch.com,marketscreener.com,wsj.com,washingtonpost.com"
+    domains_1 = "aljazeera.com,bbc.com,biztoc.com,businessinsider.com,cnn.com,etfdailynews.com,forbes.com,indiatimes.com,"
+    domains_2 = "investing.com,marketwatch.com,marketscreener.com,qz.com,seekingalpha.com,wsj.com,washingtonpost.com"
     domains = domains_1 + domains_2
     # Compile query string
     query_string = {"q":query,"language":"en","domains":domains}

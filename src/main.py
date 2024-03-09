@@ -170,14 +170,14 @@ def validate_period(period: str) -> bool:
     ----------
     period : str
         The time period length, ending on current date minus 2 or 3 days
-        Valid values : "3mo", "6mo", "1y"
+        Valid values : "1mo", "3mo", "6mo", "1y"
              
     Returns
     -------
     bool : True if period valid, else False
     """
     # Selected valid arguments as per yfinance documentation
-    valid_period_values = ["3mo", "6mo", "1y"]
+    valid_period_values = ["1mo", "3mo", "6mo", "1y"]
     try:
         period = str.lower(period)
         if period not in valid_period_values:
@@ -265,7 +265,7 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
         
     period : str | NOTE: pre-validated by validate_time_ranges()
         The time period length, ending on current date minus 2 or 3 days
-        Valid values : "3mo", "6mo", "1y"
+        Valid values : "1mo", "3mo", "6mo", "1y"
         
     interval : str | NOTE: pre-validated by validate_time_ranges()
         The interval frequency
@@ -633,7 +633,7 @@ def plot_candlestick(fig: go.Figure, ticker_code: str, history: pd.DataFrame, ho
                   line=dict(color=palette["stone"], width=2, dash="dash"), name="Mean", row=2, col=1)
 
     # Get period to determine x-axis date display
-    periods_dict = {"3mo": 7, "6mo": 7, "1y": 14}
+    periods_dict = {"1mo": 7, "3mo": 7, "6mo": 7, "1y": 14}
     period_label = periods_dict[period.lower()]
 
     # Hide dates on Prices (top) subplot x-axis
@@ -744,7 +744,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
     """
     # NOTE: validate period and interval before API call, for faster error catching
     if not validate_period(raw_period):
-        print('Invalid period value! Try "3mo", "6mo", or "1y"')
+        print('Invalid period value! Try "1mo", "3mo", "6mo", or "1y"')
         return None
     if not validate_interval(raw_interval):
         print('Invalid interval value! Try "1d" or "1wk"')
@@ -884,7 +884,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
     raw_period : str
         The time period length, ending on current date minus 2 or 3 days
-        Valid values : "3mo", "6mo", "1y"
+        Valid values : "1mo", "3mo", "6mo", "1y"
 
     raw_interval : str
         The interval frequency
@@ -916,29 +916,14 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
 
 # ===============================================================
-# Tests - with plots
+# Sample runs
 # ===============================================================
 
 # Valid ticker, period, and interval
-run_once("AAPL", "6mo", "1d", True)
+# run_once("AAPL", "6mo", "1d", True)
+run_once("AAPL", "1mo", "1d", True)
 # run_once("SPY", "6mo", "1d", True)
 # run_once("BTC-USD", "6mo", "1d", True)
 # run_once("TBCG.L", "6mo", "1d", True)
 # run_once("MSFT", "1y", "1wk", True)
 # run_once("AZN.L", "6mo", "1d", True)
-
-# ===============================================================
-# News API test
-# ===============================================================
-
-# new_session = get_session(news_api=True)
-# BASE_URL = "https://newsapi.org/v2/"
-# url = BASE_URL + "top-headlines?country=us"
-# response = new_session.get(url, headers=new_session.headers)
-# data = response.json()
-# print(data["articles"][0])
-
-# demo_name = "Ford Motor Company"
-# article_dates, article_titles = handle_news(demo_name)
-# print(len(article_dates))
-# print(len(article_titles))

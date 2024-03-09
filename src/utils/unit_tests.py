@@ -9,12 +9,7 @@ import unittest
 from main import weighted_random_selection, validate_period, validate_interval
 from main import get_ticker, get_history, get_horizon, get_earnings_dates
 # NOTE: run "python -m utils.unit_tests" from src directory to test
-"""
-Suppress Pandas future warning: 
-FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
-and will be removed in a future version. Use pd.to_timedelta instead.
-df.index += _pd.TimedeltaIndex(dst_error_hours, 'h')
-"""
+
 warnings.filterwarnings("ignore", category=FutureWarning, module="yfinance")
 
 # ===============================================================
@@ -76,11 +71,11 @@ class UnitTestsAPI(unittest.TestCase):
         
     def test_validate_period(self):
         # Test valid lowercase and uppercase values
-        for period in ["3mo", "6mo", "1y", "3MO", "6MO", "1Y"]:
+        for period in ["1mo", "3mo", "6mo", "1y", "3MO", "6MO", "1Y"]:
             result = validate_period(period)
             self.assertTrue(result, f"Error: valid period '{period}' rejected by validate_period()")
         # Test invalid values
-        for period in ["3mon", "1d", "1wk", "1mo", "AAPL"]:
+        for period in ["3mon", "1d", "1wk", "AAPL"]:
             result = validate_period(period)
             self.assertFalse(result, f"Error: invalid period '{period}' accepted by validate_period()")
         

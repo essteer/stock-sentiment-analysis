@@ -288,33 +288,41 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
     return history
 
 
-def get_horizon(history: pd.DataFrame, horizon_months: int=3) -> str:
+def get_horizon(history: pd.DataFrame, period: str="3mo", horizon_months: int=3) -> str:
     """
-    Calculates horizon beyond latest price date (defaults to 3 months ahead)
+    Calculates horizon beyond latest price date, 
+    defaults to 3 months ahead or 1 month for periods of 1 month
     Called by handle_data()
-    
+
     Parameters
     ----------
     history : pd.DataFrame | NOTE: output of get_history()
         Price history for chosen ticker
+    
+    period : str
+        The time period length, ending on current date minus 2 or 3 days
+        Valid values : "1mo", "3mo", "6mo", "1y"
 
     horizon_months : int
         No. months ahead to project earnings dates (default = 3)
         Must be 0 <= horizon_months <= 12
-    
+
     Returns
     -------
     new_horizon : str
         Today's date + horizon_months as "YYYY-MM-DD"
     """
-    # Failsafes to prevent negative and extreme horizons
-    horizon = max(0, horizon_months)
-    horizon = min(horizon, 12)
+    if period.lower() == "1mo":
+        horizon = 1
+    else:
+        # Failsafes to prevent negative and extreme horizons
+        horizon = max(0, horizon_months)
+        horizon = min(horizon, 12)
     # Get date range from ticker_history
     history_dates = history.index
     # Calculate history end date + horizon_months
     new_horizon = (list(history_dates)[-1] + pd.DateOffset(months=horizon)).strftime("%Y-%m-%d")
-
+    
     return new_horizon
 
 
@@ -330,7 +338,7 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
     history : pd.DataFrame | NOTE: output of get_history()
         Price history for chosen ticker
 
-    new_horizon : str | NOTE: output of get_horizon()
+    horizon : str | NOTE: output of get_horizon()
         Today's date + horizon_months as "YYYY-MM-DD"
 
     Returns
@@ -769,7 +777,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
         return None
     
     try:  # Retrieve horizon date
-        tick_horizon = get_horizon(tick_history)
+        tick_horizon = get_horizon(tick_history, raw_period)
     except Exception as e:
         print(f"Error fixing horizon date: {e}")
         tick_horizon = ""
@@ -921,7 +929,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d", True)
-run_once("AAPL", "1mo", "1d", True)
+run_once("MA", "1mo", "1d", True)
 # run_once("SPY", "6mo", "1d", True)
 # run_once("BTC-USD", "6mo", "1d", True)
 # run_once("TBCG.L", "6mo", "1d", True)

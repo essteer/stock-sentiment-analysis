@@ -166,7 +166,7 @@ class UnitTestsAPI(unittest.TestCase):
         test_horizons = [0, 5]
         for test_horizon in test_horizons:
             # Get horizon date value
-            test_horizon_date = get_horizon(test_history, test_horizon)
+            test_horizon_date = get_horizon(test_history, "3mo", test_horizon)
             # Get end date from test_history
             test_history_end_date = (test_history.index[-1]).strftime("%Y-%m-%d")
             # Get difference in months
@@ -189,7 +189,7 @@ class UnitTestsAPI(unittest.TestCase):
         test_horizons = [-2, 15]
         for test_horizon in test_horizons:
             # Get horizon date value
-            test_horizon_date = get_horizon(test_history, test_horizon)
+            test_horizon_date = get_horizon(test_history, "3mo", test_horizon)
             
             # Negative horizons should be set to 0
             if test_horizon < 0:
@@ -221,7 +221,7 @@ class UnitTestsAPI(unittest.TestCase):
         # Get history
         test_history = get_history(test_ticker, period="1y", interval="1wk")
         # Get horizon date value
-        test_horizon = get_horizon(test_history, horizon_months=3)
+        test_horizon = get_horizon(test_history, "3mo", horizon_months=3)
         # Get earnings dates
         test_earnings = get_earnings_dates(test_ticker, test_history, test_horizon)
         
@@ -236,7 +236,7 @@ class UnitTestsAPI(unittest.TestCase):
         # Get history
         test_history = get_history(test_ticker, period="1y", interval="1wk")
         # Get horizon date value
-        test_horizon = get_horizon(test_history, horizon_months=3)
+        test_horizon = get_horizon(test_history, "3mo", horizon_months=3)
         # Get earnings dates
         test_earnings = get_earnings_dates(test_ticker, test_history, test_horizon)
         

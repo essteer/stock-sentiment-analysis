@@ -9,12 +9,7 @@ import unittest
 from main import weighted_random_selection, validate_period, validate_interval
 from main import get_ticker, get_history, get_horizon, get_earnings_dates
 # NOTE: run "python -m utils.unit_tests" from src directory to test
-"""
-Suppress Pandas future warning: 
-FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
-and will be removed in a future version. Use pd.to_timedelta instead.
-df.index += _pd.TimedeltaIndex(dst_error_hours, 'h')
-"""
+
 warnings.filterwarnings("ignore", category=FutureWarning, module="yfinance")
 
 # ===============================================================
@@ -76,11 +71,11 @@ class UnitTestsAPI(unittest.TestCase):
         
     def test_validate_period(self):
         # Test valid lowercase and uppercase values
-        for period in ["3mo", "6mo", "1y", "3MO", "6MO", "1Y"]:
+        for period in ["1mo", "3mo", "6mo", "1y", "3MO", "6MO", "1Y"]:
             result = validate_period(period)
             self.assertTrue(result, f"Error: valid period '{period}' rejected by validate_period()")
         # Test invalid values
-        for period in ["3mon", "1d", "1wk", "1mo", "AAPL"]:
+        for period in ["3mon", "1d", "1wk", "AAPL"]:
             result = validate_period(period)
             self.assertFalse(result, f"Error: invalid period '{period}' accepted by validate_period()")
         
@@ -171,7 +166,7 @@ class UnitTestsAPI(unittest.TestCase):
         test_horizons = [0, 5]
         for test_horizon in test_horizons:
             # Get horizon date value
-            test_horizon_date = get_horizon(test_history, test_horizon)
+            test_horizon_date = get_horizon(test_history, "3mo", test_horizon)
             # Get end date from test_history
             test_history_end_date = (test_history.index[-1]).strftime("%Y-%m-%d")
             # Get difference in months
@@ -194,7 +189,7 @@ class UnitTestsAPI(unittest.TestCase):
         test_horizons = [-2, 15]
         for test_horizon in test_horizons:
             # Get horizon date value
-            test_horizon_date = get_horizon(test_history, test_horizon)
+            test_horizon_date = get_horizon(test_history, "3mo", test_horizon)
             
             # Negative horizons should be set to 0
             if test_horizon < 0:
@@ -226,7 +221,7 @@ class UnitTestsAPI(unittest.TestCase):
         # Get history
         test_history = get_history(test_ticker, period="1y", interval="1wk")
         # Get horizon date value
-        test_horizon = get_horizon(test_history, horizon_months=3)
+        test_horizon = get_horizon(test_history, "3mo", horizon_months=3)
         # Get earnings dates
         test_earnings = get_earnings_dates(test_ticker, test_history, test_horizon)
         
@@ -241,7 +236,7 @@ class UnitTestsAPI(unittest.TestCase):
         # Get history
         test_history = get_history(test_ticker, period="1y", interval="1wk")
         # Get horizon date value
-        test_horizon = get_horizon(test_history, horizon_months=3)
+        test_horizon = get_horizon(test_history, "3mo", horizon_months=3)
         # Get earnings dates
         test_earnings = get_earnings_dates(test_ticker, test_history, test_horizon)
         

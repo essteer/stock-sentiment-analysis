@@ -8,12 +8,7 @@ from plotly.subplots import make_subplots
 from dotenv import load_dotenv
 import spacy
 import spacy_transformers  # required for transformer model
-"""
-Suppress Pandas future warning: 
-FutureWarning: The 'unit' keyword in TimedeltaIndex construction is deprecated 
-and will be removed in a future version. Use pd.to_timedelta instead.
-df.index += _pd.TimedeltaIndex(dst_error_hours, 'h')
-"""
+
 warnings.filterwarnings("ignore", category=FutureWarning, module="yfinance")
 # Load dotenv environment
 load_dotenv()
@@ -175,14 +170,14 @@ def validate_period(period: str) -> bool:
     ----------
     period : str
         The time period length, ending on current date minus 2 or 3 days
-        Valid values : "3mo", "6mo", "1y"
+        Valid values : "1mo", "3mo", "6mo", "1y"
              
     Returns
     -------
     bool : True if period valid, else False
     """
     # Selected valid arguments as per yfinance documentation
-    valid_period_values = ["3mo", "6mo", "1y"]
+    valid_period_values = ["1mo", "3mo", "6mo", "1y"]
     try:
         period = str.lower(period)
         if period not in valid_period_values:
@@ -270,7 +265,7 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
         
     period : str | NOTE: pre-validated by validate_time_ranges()
         The time period length, ending on current date minus 2 or 3 days
-        Valid values : "3mo", "6mo", "1y"
+        Valid values : "1mo", "3mo", "6mo", "1y"
         
     interval : str | NOTE: pre-validated by validate_time_ranges()
         The interval frequency
@@ -293,33 +288,41 @@ def get_history(ticker: yf.Ticker, period: str="3mo", interval: str="1d") -> pd.
     return history
 
 
-def get_horizon(history: pd.DataFrame, horizon_months: int=3) -> str:
+def get_horizon(history: pd.DataFrame, period: str="3mo", horizon_months: int=3) -> str:
     """
-    Calculates horizon beyond latest price date (defaults to 3 months ahead)
+    Calculates horizon beyond latest price date, 
+    defaults to 3 months ahead or 1 month for periods of 1 month
     Called by handle_data()
-    
+
     Parameters
     ----------
     history : pd.DataFrame | NOTE: output of get_history()
         Price history for chosen ticker
+    
+    period : str
+        The time period length, ending on current date minus 2 or 3 days
+        Valid values : "1mo", "3mo", "6mo", "1y"
 
     horizon_months : int
         No. months ahead to project earnings dates (default = 3)
         Must be 0 <= horizon_months <= 12
-    
+
     Returns
     -------
     new_horizon : str
         Today's date + horizon_months as "YYYY-MM-DD"
     """
-    # Failsafes to prevent negative and extreme horizons
-    horizon = max(0, horizon_months)
-    horizon = min(horizon, 12)
+    if period.lower() == "1mo":
+        horizon = 1
+    else:
+        # Failsafes to prevent negative and extreme horizons
+        horizon = max(0, horizon_months)
+        horizon = min(horizon, 12)
     # Get date range from ticker_history
     history_dates = history.index
     # Calculate history end date + horizon_months
     new_horizon = (list(history_dates)[-1] + pd.DateOffset(months=horizon)).strftime("%Y-%m-%d")
-
+    
     return new_horizon
 
 
@@ -335,7 +338,7 @@ def get_earnings_dates(ticker: yf.Ticker, history: pd.DataFrame, horizon: str) -
     history : pd.DataFrame | NOTE: output of get_history()
         Price history for chosen ticker
 
-    new_horizon : str | NOTE: output of get_horizon()
+    horizon : str | NOTE: output of get_horizon()
         Today's date + horizon_months as "YYYY-MM-DD"
 
     Returns
@@ -441,8 +444,8 @@ def get_news(short_name: str) -> tuple[dict, str]:
     # NOTE: max URL length = 500 characters
     base_url = "https://newsapi.org/v2/everything?"
     # Break domains in half for easier code review
-    domains_1 = "aljazeera.com,bbc.com,businessinsider.com,cnn.com,forbes.com,indiatimes.com,"
-    domains_2 = "investing.com,marketwatch.com,marketscreener.com,wsj.com,washingtonpost.com"
+    domains_1 = "aljazeera.com,bbc.com,biztoc.com,businessinsider.com,cnn.com,etfdailynews.com,forbes.com,indiatimes.com,"
+    domains_2 = "investing.com,marketwatch.com,marketscreener.com,qz.com,seekingalpha.com,wsj.com,washingtonpost.com"
     domains = domains_1 + domains_2
     # Compile query string
     query_string = {"q":query,"language":"en","domains":domains}
@@ -638,7 +641,7 @@ def plot_candlestick(fig: go.Figure, ticker_code: str, history: pd.DataFrame, ho
                   line=dict(color=palette["stone"], width=2, dash="dash"), name="Mean", row=2, col=1)
 
     # Get period to determine x-axis date display
-    periods_dict = {"3mo": 7, "6mo": 7, "1y": 14}
+    periods_dict = {"1mo": 7, "3mo": 7, "6mo": 7, "1y": 14}
     period_label = periods_dict[period.lower()]
 
     # Hide dates on Prices (top) subplot x-axis
@@ -749,7 +752,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
     """
     # NOTE: validate period and interval before API call, for faster error catching
     if not validate_period(raw_period):
-        print('Invalid period value! Try "3mo", "6mo", or "1y"')
+        print('Invalid period value! Try "1mo", "3mo", "6mo", or "1y"')
         return None
     if not validate_interval(raw_interval):
         print('Invalid interval value! Try "1d" or "1wk"')
@@ -774,7 +777,7 @@ def handle_data(raw_tick: str, raw_period: str="3mo", raw_interval: str="1d") ->
         return None
     
     try:  # Retrieve horizon date
-        tick_horizon = get_horizon(tick_history)
+        tick_horizon = get_horizon(tick_history, raw_period)
     except Exception as e:
         print(f"Error fixing horizon date: {e}")
         tick_horizon = ""
@@ -889,7 +892,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
     raw_period : str
         The time period length, ending on current date minus 2 or 3 days
-        Valid values : "3mo", "6mo", "1y"
+        Valid values : "1mo", "3mo", "6mo", "1y"
 
     raw_interval : str
         The interval frequency
@@ -921,29 +924,14 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
 
 # ===============================================================
-# Tests - with plots
+# Sample runs
 # ===============================================================
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "6mo", "1d", True)
+run_once("MA", "1mo", "1d", True)
 # run_once("SPY", "6mo", "1d", True)
 # run_once("BTC-USD", "6mo", "1d", True)
 # run_once("TBCG.L", "6mo", "1d", True)
 # run_once("MSFT", "1y", "1wk", True)
 # run_once("AZN.L", "6mo", "1d", True)
-
-# ===============================================================
-# News API test
-# ===============================================================
-
-# new_session = get_session(news_api=True)
-# BASE_URL = "https://newsapi.org/v2/"
-# url = BASE_URL + "top-headlines?country=us"
-# response = new_session.get(url, headers=new_session.headers)
-# data = response.json()
-# print(data["articles"][0])
-
-# demo_name = "Ford Motor Company"
-# article_dates, article_titles = handle_news(demo_name)
-# print(len(article_dates))
-# print(len(article_titles))

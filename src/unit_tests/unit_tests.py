@@ -1,15 +1,13 @@
 # -*- coding: utf-8 -*-
-import os, random, requests, time, warnings
+import os, requests, sys, time, warnings
+sys.path.append('..')  # Add parent directory to path
 import yfinance as yf
 import pandas as pd
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from dotenv import load_dotenv
 import unittest
-from main import weighted_random_selection, validate_period, validate_interval
-from main import get_ticker, get_history, get_horizon, get_earnings_dates
-# NOTE: run "python -m utils.unit_tests" from src directory to test
-
+from utils.session_funcs import weighted_random_selection 
+from utils.data_funcs import validate_period, validate_interval, get_ticker
+from utils.data_funcs import get_history, get_horizon, get_earnings_dates
+# NOTE: run "python -m unit_tests.unit_tests" from src directory to test
 warnings.filterwarnings("ignore", category=FutureWarning, module="yfinance")
 
 # ===============================================================

@@ -8,7 +8,6 @@ from utils.session_funcs import get_session
 from utils.data_funcs import validate_period, validate_interval, get_ticker, get_history
 from utils.data_funcs import get_horizon, get_earnings_dates, get_short_name, get_currency
 from utils.news_funcs import get_news, get_articles, get_nlp_predictions, get_rolling_averages
-# from utils.plot_funcs import format_plot, plot_candlestick, plot_sentiment
 from utils.plot_funcs import get_palette, format_plot, plot_candlestick, plot_sentiment
 
 # ===============================================================

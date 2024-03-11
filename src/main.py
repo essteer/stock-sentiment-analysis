@@ -59,10 +59,10 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 
 # Valid ticker, period, and interval
 # run_once("AAPL", "3mo", "1d", True)
-# run_once("AAPL", "6mo", "1d", True)
+run_once("AAPL", "6mo", "1d", True)
 # run_once("MA", "1mo", "1d", True)
 # run_once("SPY", "6mo", "1d", True)
 # run_once("BTC-USD", "6mo", "1d", True)
 # run_once("TBCG.L", "6mo", "1d", True)
-run_once("MSFT", "1y", "1wk", True)
+# run_once("MSFT", "1y", "1wk", True)
 # run_once("AZN.L", "6mo", "1d", True)

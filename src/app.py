@@ -230,12 +230,12 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
 # Specify wide layout
 st.set_page_config(layout = 'wide')       
 
-col11, col12 = st.columns([1, 3])
-with col12:
+col_title_1, col_title_2 = st.columns([1, 4.07])
+with col_title_2:
     st.title("Stock Price and Market Sentiment Analysis")
 
-col13, col14 = st.columns([1, 6])
-with col14:
+col_sh_1, col_sh_2 = st.columns([1, 4.07])
+with col_sh_2:
     st.subheader(
         "Explore historical price data and general stock sentiment derived from news headlines in the last 30 days."
         )
@@ -244,13 +244,13 @@ with col14:
 col_inp_1, col_inp_2, col_inp_3, col_inp_4, col_inp_5 = st.columns(5)
 
 with col_inp_2:
-    ticker_input = st.text_input(label = "Ticker:", value = "NVDA", max_chars = None)
+    ticker_input = st.text_input(label = "Ticker: ", value = "GOOG", max_chars = None, label_visibility='collapsed')
 
 with col_inp_3:
-    period_dd = st.selectbox(label = "Period:", options = ["Last 3 months", "Last 6 months", "Last 12 months"], index = 2)
+    period_dd = st.selectbox(label = "Period: ", options = ["Last 3 months", "Last 6 months", "Last 12 months"], index = 2, label_visibility='collapsed')
 
 with col_inp_4: 
-    interval_dd = st.selectbox(label = "Interval:", options = ["1 day", "1 week"], index = 0)
+    interval_dd = st.selectbox(label = "Interval: ", options = ["Daily", "Weekly"], index = 0, label_visibility='collapsed')
 
 # Create columns for run button and process messages
 col_but_1, col_but_2, col_but_3 = st.columns([2, 6, 2])
@@ -269,7 +269,7 @@ with col_but_2:
         # Plot the graph
         run_once(sl_ticker, sl_period, sl_interval, True)
 
-        # Remove text from column 5
+        # Remove text for col_info_2; "Generating plot..."
         with col_info_2:
             working_text.empty()
 

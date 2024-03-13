@@ -261,7 +261,7 @@ with col_but_2:
     if st.button("Generate plot"):
         sl_ticker = ticker_input
         sl_period = "3mo" if period_dd == "Last 3 months" else "6mo" if period_dd == "Last 6 months" else "1y"
-        sl_interval = "1d" if interval_dd == "1 day" else "1wk"
+        sl_interval = "1d" if interval_dd == "Daily" else "1wk"
 
         with col_info_2:
             working_text = st.text("Generating plot...")

@@ -1,5 +1,8 @@
 # Stock Sentiment Analysis with spaCy Transformers
 
+![GitHub last commit](https://img.shields.io/github/last-commit/essteer/stock-sentiment-analysis?color=green) ![GitHub License](https://img.shields.io/github/license/essteer/stock-sentiment-analysis?color=blue) ![GitHub top language](https://img.shields.io/github/languages/top/essteer/stock-sentiment-analysis?color=red) ![GitHub repo size](https://img.shields.io/github/repo-size/essteer/stock-sentiment-analysis)
+
+
 ## Overview
 
 We (the contributors) developed this app as a proof of concept for the use of natural language processing (NLP) sentiment analysis models in securities market analysis. We sought to enhance standard price analysis through the use of spaCy's state-of-the-art transformer models, to introduce a measure of aggregate market sentiment over time that can facilitate informed trading decisions.

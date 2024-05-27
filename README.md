@@ -1,11 +1,13 @@
 # Stock Sentiment Analysis with spaCy Transformers
 
-![GitHub last commit](https://img.shields.io/github/last-commit/essteer/stock-sentiment-analysis?color=green) ![GitHub License](https://img.shields.io/github/license/essteer/stock-sentiment-analysis?color=blue) ![GitHub top language](https://img.shields.io/github/languages/top/essteer/stock-sentiment-analysis?color=red) ![GitHub repo size](https://img.shields.io/github/repo-size/essteer/stock-sentiment-analysis)
-
+![Python](https://img.shields.io/badge/Python-3.9_|_3.10_|_3.11_|_3.12-3776AB.svg?style=flat&logo=Python&logoColor=white)
+[![Jupyter](https://img.shields.io/badge/Jupyter-F37626.svg?style=flat&logo=Jupyter&labelColor=555&logoColor=white)](https://github.com/jupyter)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Spacy](https://img.shields.io/badge/spaCy-09A3D5.svg?style=flat&logo=spaCy&labelColor=555&logoColor=white)](https://github.com/explosion/spaCy)
 
 ## Overview
 
-We (the contributors) developed this app as a proof of concept for the use of natural language processing (NLP) sentiment analysis models in securities market analysis. We sought to enhance standard price analysis through the use of spaCy's state-of-the-art transformer models, to introduce a measure of aggregate market sentiment over time that can facilitate informed trading decisions.
+We developed this app as a proof of concept for the use of natural language processing (NLP) sentiment analysis models in securities market analysis. We sought to enhance standard price analysis through the use of spaCy's state-of-the-art transformer models, to introduce a measure of aggregate market sentiment over time that can facilitate informed trading decisions.
 
 Transformer models are neural networks that learn context and meaning from sequential data. Since first emerging in the 2017 Google paper [Attention is All You Need](https://research.google/pubs/attention-is-all-you-need/), transformers have earned widespread recognition for their sophistication in sentiment analysis and text classification, and underpin many groundbreaking technologies such as ChatGPT and other large language models (LLMs), among other applications.
 
@@ -47,14 +49,14 @@ In total, we trained 25 different models out of variations of the above - some c
 
 A sample readout from the training process is displayed before - in this case, for Model 24:
 
-<img src="src/images/model-best-24-training-pipeline.png" alt="model-best-24 training pipeline"
+<img src="images/model-best-24-training-pipeline.png" alt="model-best-24 training pipeline"
         width="500" height="535">
 
 Through the grid search we selected the five best-performing models on the training data, based on their accuracy, transformer loss, and textcat loss measures, as well as a short test on nine financial headlines to identify obvious mistakes that should exclude a model from the shortlist.
 
 An example outcome for two of the headlines that Model 3 (Baseline) was run on post-training is displayed below.
 
-<img src="src/images/model-best-3-predictions.png" alt="model-best-3 predictions"
+<img src="images/model-best-3-predictions.png" alt="model-best-3 predictions"
         width="800" height="230">
 
 The five shortlisted models included the baseline and four others, as follows:
@@ -76,7 +78,7 @@ To mitigate the risk of selecting a model that had overfit to the training data,
 
 The screencap below shows the output of a Jupyter notebook cell used to train Model 24.
 
-<img src="src/images/model-best-24-test-progress.png" alt="Model 24 test progress"
+<img src="images/model-best-24-test-progress.png" alt="Model 24 test progress"
         width="540" height="150">
 
 To select our best model, we measured the performance of each of the five models against the test dataset, and compared their scores for accuracy, precision and recall. The results for each model are displayed below.
@@ -91,7 +93,7 @@ Model 24 - the best performer on the training set - was also the strongest model
 
 The screencap below shows the test performance metrics for Model 24, including the confusion matrix.
 
-<img src="src/images/model-best-24-test-metrics.png" alt="Model 24 test metrics"
+<img src="images/model-best-24-test-metrics.png" alt="Model 24 test metrics"
         width="540" height="150">
 
 The diagonal figures of the confusion matrix from top-left to bottom-right show the number of observations correctly predicted by the model. The off-diagonal figures show incorrect predictions. Note that the top-right and bottom-left figures represent positive headlines that were incorrectly predicted as negative, and vice versa. The fact that both of these figures are low offers reassurance in the model's performance, since when mistakes were made, they were mostly first-degree errors between positive and neutral sentiment, or negative and neutral sentiment.
@@ -108,12 +110,12 @@ Example outputs are depicted below - the sentiment data can be seen in yellow.
 
 MasterCard:
 
-<img src="src/images/plotly_ma.png" alt="MasterCard chart"
+<img src="images/plotly_ma.png" alt="MasterCard chart"
         width="520" height="330">
 
 Apple Inc:
 
-<img src="src/images/plotly_aapl.png" alt="Apple Inc chart"
+<img src="images/plotly_aapl.png" alt="Apple Inc chart"
         width="520" height="330">
 
 ## Acknowledgements

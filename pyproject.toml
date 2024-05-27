@@ -7,7 +7,8 @@ authors = [
     { name = "Elliott Steer", email = "essteer@pm.me" },
 ]
 dependencies = [
-    "pandas>=2.2.1",
+    "masquer==1.1.0",
+    "pandas>=2.2.2",
     "plotly>=5.19.0",
     "python-dotenv>=1.0.1",
     "requests>=2.31.0",

@@ -1,9 +1,12 @@
 # -*- coding: utf-8 -*-
-import os, time
+import os
+import time
 import pandas as pd
 from dotenv import load_dotenv
 import spacy
-import spacy_transformers  # required for transformer model
+
+# spacy_transformers required for transformer model
+import spacy_transformers  # noqa: F401
 from utils.session_funcs import get_session
 
 # Load dotenv environment
@@ -13,6 +16,7 @@ NEWS_API_KEY = os.environ.get("NEWS_API_KEY")
 # ===============================================================
 # Functions to call and process News API data
 # ===============================================================
+
 
 def get_news(short_name: str) -> tuple[dict, str]:
     """
@@ -27,7 +31,7 @@ def get_news(short_name: str) -> tuple[dict, str]:
     -------
     data : dict
         Dictionary of JSON response from News API call
-    
+
     name_list[0] : str
         First term of search query used
     """
@@ -49,7 +53,7 @@ def get_news(short_name: str) -> tuple[dict, str]:
     domains_2 = "investing.com,marketwatch.com,marketscreener.com,qz.com,seekingalpha.com,wsj.com,washingtonpost.com"
     domains = domains_1 + domains_2
     # Compile query string
-    query_string = {"q":query,"language":"en","domains":domains}
+    query_string = {"q": query, "language": "en", "domains": domains}
 
     # Loop with short delay to handle one-off API errors
     for i in range(3):
@@ -57,7 +61,9 @@ def get_news(short_name: str) -> tuple[dict, str]:
             # Get new session for API call
             news_session = get_session(news_api=True)
             # Make API call
-            response = news_session.get(base_url, headers=news_session.headers, params=query_string)
+            response = news_session.get(
+                base_url, headers=news_session.headers, params=query_string
+            )
             # Extract data from response
             data = response.json()
 
@@ -117,7 +123,7 @@ def get_articles(data: dict, query: str) -> tuple[list[str]]:
 
         except (KeyError, AttributeError):
             continue
-        
+
         except Exception as e:
             print(f"Error getting article: {e}")
             continue
@@ -128,6 +134,7 @@ def get_articles(data: dict, query: str) -> tuple[list[str]]:
 # ===============================================================
 # Functions to run NLP model and process sentiment data
 # ===============================================================
+
 
 def get_nlp_predictions(article_data: zip) -> dict:
     """
@@ -162,7 +169,7 @@ def get_nlp_predictions(article_data: zip) -> dict:
         # Update dictionary values
         sentiment_dict[date] = date_sentiment
     # Create dict with average sentiment for each date present
-    aggregate_sentiment = {k: (sum(v)/len(v)) for k, v in sentiment_dict.items()}
+    aggregate_sentiment = {k: (sum(v) / len(v)) for k, v in sentiment_dict.items()}
 
     return aggregate_sentiment
 
@@ -192,4 +199,3 @@ def get_rolling_averages(sent_data: dict) -> pd.DataFrame:
     df["rolling_avg"] = df["sentiment"].rolling(window=window).mean()
 
     return df
-

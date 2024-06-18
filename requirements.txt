@@ -88,6 +88,8 @@ markdown-it-py==3.0.0
     # via rich
 markupsafe==2.1.5
     # via jinja2
+masquer==1.1.0
+    # via stock-sentiment-analysis (pyproject.toml)
 mdurl==0.1.2
     # via markdown-it-py
 mpmath==1.3.0

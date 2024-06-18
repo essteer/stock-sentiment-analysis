@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 from utils.handler_funcs import handle_data, handle_news, handle_plots
 
-def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", show_plots=False) -> None:
+
+def run_once(
+    raw_ticker: str, raw_period: str = "3mo", raw_interval: str = "1d", show_plots=False
+) -> None:
     """
     Master function:
         Calls utils.handler_funcs.handle_data() to obtain and process data
@@ -28,7 +31,7 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
     """
     try:
         # Retain t_obj (Ticker object) for further use
-        t_obj, t_hist, t_horizon, t_earn_dates, t_name, t_curr =  handle_data(
+        t_obj, t_hist, t_horizon, t_earn_dates, t_name, t_curr = handle_data(
             raw_ticker, raw_period, raw_interval
         )
 
@@ -39,13 +42,20 @@ def run_once(raw_ticker: str, raw_period: str="3mo", raw_interval: str="1d", sho
             print(f"Error getting market sentiment data: {e}")
             sentiment_df = None
 
-        if show_plots == True:
+        if show_plots:
             try:
                 # Send raw_ticker to pass the string for plotting, not the Ticker object
                 handle_plots(
-                    sentiment_df, raw_ticker, t_hist, t_horizon, t_earn_dates, 
-                    t_name, t_curr, raw_period, raw_interval
-            )
+                    sentiment_df,
+                    raw_ticker,
+                    t_hist,
+                    t_horizon,
+                    t_earn_dates,
+                    t_name,
+                    t_curr,
+                    raw_period,
+                    raw_interval,
+                )
             except Exception as e:
                 print(f"Error during plot handling: {e}")
 

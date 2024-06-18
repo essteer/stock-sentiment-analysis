@@ -7,10 +7,13 @@ authors = [
     { name = "Elliott Steer", email = "essteer@pm.me" },
 ]
 dependencies = [
+    "masquer==1.1.1",
     "pandas>=2.2.2",
-    "plotly>=5.19.0",
+    "plotly>=5.22.0",
+    "pre-commit==3.7.1",
     "python-dotenv>=1.0.1",
-    "requests>=2.32.0",
+    "requests>=2.32.3",
+    "ruff==0.4.5",
     "spacy>=3.7.5",
     "spacy-transformers>=1.3.5",
     "streamlit>=1.35.0",

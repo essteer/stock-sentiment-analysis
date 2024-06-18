@@ -47,6 +47,7 @@ filelock==3.14.0
     #   huggingface-hub
     #   torch
     #   transformers
+    #   triton
 frozendict==2.4.4
     # via yfinance
 fsspec==2024.5.0
@@ -206,7 +207,7 @@ referencing==0.35.1
     #   jsonschema-specifications
 regex==2024.5.15
     # via transformers
-requests==2.31.0
+requests==2.32.3
     # via
     #   stock-sentiment-analysis (pyproject.toml)
     #   huggingface-hub
@@ -233,14 +234,12 @@ six==1.16.0
     #   html5lib
     #   python-dateutil
 smart-open==6.4.0
-    # via
-    #   spacy
-    #   weasel
+    # via weasel
 smmap==5.0.1
     # via gitdb
 soupsieve==2.5
     # via beautifulsoup4
-spacy==3.7.4
+spacy==3.7.5
     # via
     #   stock-sentiment-analysis (pyproject.toml)
     #   spacy-transformers
@@ -259,7 +258,7 @@ srsly==2.4.8
     #   spacy-transformers
     #   thinc
     #   weasel
-streamlit==1.34.0
+streamlit==1.35.0
     # via stock-sentiment-analysis (pyproject.toml)
 sympy==1.12
     # via torch
@@ -277,21 +276,25 @@ toolz==0.12.1
     # via altair
 torch==2.3.0
     # via spacy-transformers
-tornado==6.4
+tornado==6.4.1
     # via streamlit
 tqdm==4.66.4
     # via
     #   huggingface-hub
     #   spacy
     #   transformers
-transformers==4.36.2
+transformers==4.38.0
     # via spacy-transformers
+triton==2.3.0
+    # via torch
 typer==0.9.4
     # via
     #   spacy
     #   weasel
 typing-extensions==4.11.0
     # via
+    #   altair
+    #   cloudpathlib
     #   huggingface-hub
     #   pydantic
     #   pydantic-core
@@ -300,7 +303,7 @@ typing-extensions==4.11.0
     #   typer
 tzdata==2024.1
     # via pandas
-urllib3==2.2.1
+urllib3==2.2.2
     # via requests
 wasabi==1.1.2
     # via
